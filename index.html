@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>妖妖活動公告</title>
+  <meta name="description" content="妖妖活動公告｜查看活動座標，一鍵複製座標或下載 GPX。" />
+  <style>
+    :root {
+      --bg: #fff8f2;
+      --card: #ffffff;
+      --text: #3d332d;
+      --muted: #8a7b70;
+      --primary: #ef7d9b;
+      --primary-dark: #d95f83;
+      --green: #75ad79;
+      --green-dark: #5d9863;
+      --border: #f0ded3;
+      --shadow: 0 12px 30px rgba(112, 79, 61, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(255, 214, 226, 0.72), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(204, 239, 203, 0.7), transparent 32%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 28px 16px 18px;
+      text-align: center;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: clamp(26px, 5vw, 42px);
+      letter-spacing: 0.04em;
+    }
+
+    header p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .wrap {
+      width: min(1160px, calc(100% - 28px));
+      margin: 0 auto 44px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .topbar,
+    .empty {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      border-radius: 22px;
+    }
+
+    .topbar {
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .summary-title {
+      font-weight: 900;
+      color: var(--green-dark);
+      white-space: nowrap;
+    }
+
+    .summary-text {
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1.5;
+    }
+
+    .summary {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 8px 10px;
+      background: var(--primary);
+      color: #fff;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      transition: transform 0.12s ease, background 0.12s ease, opacity 0.12s ease;
+      white-space: nowrap;
+    }
+
+    button:hover {
+      background: var(--primary-dark);
+      transform: translateY(-1px);
+    }
+
+    button.download { background: #4f8edc; }
+    button.download:hover { background: #407fc9; }
+    button.secondary { background: #a99586; }
+    button.secondary:hover { background: #8c7a6d; }
+
+    .result-section-title {
+      margin: 4px 4px 10px;
+      font-size: 18px;
+      font-weight: 900;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .result-section-title .sub {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .events-grid {
+      display: block;
+      width: 100%;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: var(--shadow);
+    }
+
+    .event-table-header,
+    .event-card {
+      display: grid;
+      grid-template-columns:
+        minmax(125px, 0.95fr)
+        minmax(128px, 0.82fr)
+        minmax(172px, 0.9fr)
+        minmax(74px, 0.48fr)
+        minmax(110px, 0.82fr)
+        minmax(290px, 1.75fr);
+      align-items: stretch;
+    }
+
+    .event-table-header {
+      background: #eef8ee;
+      color: var(--green-dark);
+      font-weight: 900;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .event-card {
+      border-bottom: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.94);
+    }
+
+    .event-card:last-child { border-bottom: 0; }
+    .event-card.ended { opacity: 0.72; }
+
+    .event-cell {
+      min-width: 0;
+      padding: 12px 11px;
+      border-right: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      line-height: 1.45;
+      font-size: 14px;
+      word-break: break-word;
+    }
+
+    .event-cell:last-child { border-right: 0; }
+    .event-interval-cell,
+    .event-period-cell { white-space: nowrap; }
+
+    .event-card-title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 900;
+      line-height: 1.35;
+    }
+
+    .event-operation-cell {
+      gap: 7px;
+      flex-wrap: nowrap;
+      white-space: nowrap;
+    }
+
+    .event-status {
+      flex: 0 0 auto;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 900;
+      background: #edf7ee;
+      color: var(--green-dark);
+      white-space: nowrap;
+    }
+
+    .event-status.upcoming { background: #fff5df; color: #9a6a18; }
+    .event-status.ended { background: #f4eeee; color: var(--muted); }
+    .event-status.permanent { background: #eef2ff; color: #5e6ea8; }
+
+    .event-actions {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 6px;
+    }
+
+    .event-actions button {
+      width: auto;
+      padding: 7px 9px;
+      font-size: 12px;
+      border-radius: 10px;
+    }
+
+    .event-mobile-label { display: none; }
+
+    .events-ended-title {
+      margin: 18px 4px 10px;
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 36px 16px;
+      color: var(--muted);
+      display: none;
+    }
+
+    .page-footer-note {
+      width: min(1160px, calc(100% - 28px));
+      margin: -24px auto 34px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 22px;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(61, 51, 45, 0.94);
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 999px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 50;
+      font-size: 14px;
+    }
+
+    .toast.active {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 1024px) {
+      header { padding: 18px 12px 10px; }
+      header h1 { font-size: 24px; }
+      header p { font-size: 13px; }
+
+      .wrap {
+        width: min(100% - 20px, 760px);
+        gap: 14px;
+        margin-bottom: 28px;
+      }
+
+      .topbar { align-items: stretch; }
+      .summary { width: 100%; }
+      .summary-text { white-space: normal; }
+
+      .result-section-title {
+        margin: 8px 4px 8px;
+        font-size: 20px;
+        line-height: 1.35;
+        display: block;
+      }
+
+      .result-section-title .sub {
+        display: block;
+        margin-top: 3px;
+      }
+
+      .events-grid {
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        background: transparent;
+        display: grid;
+        gap: 12px;
+        overflow: visible;
+      }
+
+      .event-table-header { display: none; }
+
+      .event-card {
+        display: grid;
+        grid-template-columns: 1fr !important;
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.94);
+        box-shadow: var(--shadow);
+      }
+
+      .event-cell {
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+        padding: 11px 14px;
+        min-height: 44px;
+      }
+
+      .event-cell:last-child { border-bottom: 0; }
+      .event-interval-cell,
+      .event-period-cell { white-space: normal; }
+
+      .event-mobile-label {
+        display: inline-block;
+        width: 72px;
+        flex: 0 0 72px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .event-name-cell .event-mobile-label { display: none; }
+      .event-card-title { font-size: 18px; }
+
+      .event-operation-cell {
+        flex-wrap: wrap;
+        white-space: normal;
+      }
+
+      .event-operation-cell > .event-mobile-label {
+        width: 100%;
+        flex: 0 0 100%;
+      }
+
+      .event-actions {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .event-actions button {
+        flex: 1 1 0;
+        min-width: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎪 妖妖活動公告</h1>
+    <p>查看活動座標，一鍵複製座標或下載 GPX。</p>
+  </header>
+
+  <main class="wrap">
+    <section class="topbar">
+      <div class="summary">
+        <span class="summary-title">活動摘要</span>
+        <span id="eventSummaryText" class="summary-text">讀取中...</span>
+      </div>
+    </section>
+
+    <div id="loadingMessage" class="empty" style="display:block;">🎪 正在載入活動資料...</div>
+
+    <section id="eventsSection" style="display:none;">
+      <div class="result-section-title">活動座標 <span id="eventsCount" class="sub"></span></div>
+      <div id="eventsGrid" class="events-grid"></div>
+      <div id="endedEventsTitle" class="events-ended-title" style="display:none;">已結束活動</div>
+      <div id="endedEventsGrid" class="events-grid" style="display:none;"></div>
+    </section>
+
+    <div id="eventsEmpty" class="empty">目前沒有活動座標。</div>
+  </main>
+
+  <footer class="page-footer-note">活動資料以網站公告內容為準。</footer>
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycby6rxbH_2xObY8yeCMD3bzspAqwMEIrHhWRfA5OrGHdLx55DPeUKTENqd7DkoAEjn7p/exec";
+
+    const EVENT_INTERVAL_LABELS = {
+      "1day": "每1天一次",
+      "7days": "每7天一次",
+      "30days": "每30天一次",
+      "monthly1st": "每月1號刷新",
+      "1month": "每月1號刷新",
+      "once": "活動期間限一次"
+    };
+
+    const PUBLIC_CACHE_KEY = "pikminActivityPublicCacheV1";
+    const CACHE_MAX_AGE = 15 * 60 * 1000;
+    const DATA_VERSION_CHECK_INTERVAL = 12 * 1000;
+    const FETCH_TIMEOUT = 15000;
+
+    let events = [];
+    let currentDataVersion = null;
+    let toastTimer = null;
+    let isLoading = false;
+    let versionTimer = null;
+
+    const $ = id => document.getElementById(id);
+
+    function showToast(message) {
+      const toast = $("toast");
+      toast.textContent = message;
+      toast.classList.add("active");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("active"), 1600);
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function escapeXml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&apos;");
+    }
+
+    function sanitizeFileName(value) {
+      return String(value || "活動座標")
+        .replace(/[\\/:*?"<>|]/g, "_")
+        .replace(/\s+/g, " ")
+        .trim() || "活動座標";
+    }
+
+    function fetchWithTimeout(url, timeoutMs = FETCH_TIMEOUT) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      return fetch(url, { cache: "no-store", signal: controller.signal })
+        .finally(() => clearTimeout(timer));
+    }
+
+    function saveCache() {
+      try {
+        localStorage.setItem(PUBLIC_CACHE_KEY, JSON.stringify({
+          savedAt: Date.now(),
+          dataVersion: currentDataVersion,
+          events
+        }));
+      } catch (error) {
+        console.debug("保存活動快取失敗", error);
+      }
+    }
+
+    function restoreCache() {
+      try {
+        const raw = localStorage.getItem(PUBLIC_CACHE_KEY);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        if (!data || !Array.isArray(data.events) || !Number.isFinite(Number(data.savedAt))) return false;
+        if (Date.now() - Number(data.savedAt) > CACHE_MAX_AGE) return false;
+        events = data.events;
+        currentDataVersion = data.dataVersion != null ? String(data.dataVersion) : null;
+        renderEvents();
+        return true;
+      } catch (error) {
+        console.debug("讀取活動快取失敗", error);
+        return false;
+      }
+    }
+
+    async function loadEvents({ showLoading = false } = {}) {
+      if (isLoading) return false;
+      isLoading = true;
+      if (showLoading) $("loadingMessage").style.display = "block";
+
+      try {
+        const res = await fetchWithTimeout(`${API_URL}?action=list&ts=${Date.now()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || "讀取活動失敗");
+
+        // API 仍沿用開花網站的共同公開資料，只取 events。
+        events = Array.isArray(data.events) ? data.events : [];
+        currentDataVersion = data.dataVersion != null ? String(data.dataVersion) : null;
+        saveCache();
+        renderEvents();
+        return true;
+      } catch (error) {
+        console.error(error);
+        if (!events.length && !restoreCache()) {
+          $("eventsEmpty").textContent = error && error.name === "AbortError"
+            ? "活動資料載入逾時，請稍後重新整理。"
+            : "暫時無法讀取活動資料。";
+          $("eventsEmpty").style.display = "block";
+        } else {
+          showToast("暫時無法更新，目前顯示上次成功資料");
+        }
+        return false;
+      } finally {
+        isLoading = false;
+        $("loadingMessage").style.display = "none";
+      }
+    }
+
+    async function checkDataVersion() {
+      if (document.visibilityState !== "visible" || isLoading) return;
+      try {
+        const res = await fetchWithTimeout(`${API_URL}?action=version&ts=${Date.now()}`, 8000);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.success || data.dataVersion == null) return;
+        const serverVersion = String(data.dataVersion);
+        if (currentDataVersion === null) {
+          currentDataVersion = serverVersion;
+          return;
+        }
+        if (serverVersion !== currentDataVersion) await loadEvents();
+      } catch (error) {
+        console.debug("活動資料版本檢查失敗", error);
+      }
+    }
+
+    function startVersionTimer() {
+      if (versionTimer) clearInterval(versionTimer);
+      if (document.visibilityState !== "visible") return;
+      versionTimer = setInterval(checkDataVersion, DATA_VERSION_CHECK_INTERVAL);
+    }
+
+    function eventDateKey(value) {
+      if (!value) return "";
+      if (Object.prototype.toString.call(value) === "[object Date]") {
+        const y = value.getFullYear();
+        const m = String(value.getMonth() + 1).padStart(2, "0");
+        const d = String(value.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      }
+      const text = String(value).trim();
+      const direct = text.match(/^(\d{4})[-\/]?(\d{1,2})[-\/]?(\d{1,2})/);
+      if (direct) return `${direct[1]}-${String(Number(direct[2])).padStart(2, "0")}-${String(Number(direct[3])).padStart(2, "0")}`;
+      const date = new Date(text);
+      if (Number.isNaN(date.getTime())) return "";
+      const taipei = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit"
+      }).format(date);
+      return taipei;
+    }
+
+    function formatEventDate(value) {
+      const key = eventDateKey(value);
+      return key ? key.replace(/-/g, "/") : "";
+    }
+
+    function todayTaipeiKey() {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit"
+      }).format(new Date());
+    }
+
+    function getEventStatus(eventData) {
+      const today = todayTaipeiKey();
+      const start = eventDateKey(eventData.startDate);
+      const end = eventDateKey(eventData.endDate);
+      if (start && today < start) return { key: "upcoming", label: "尚未開始" };
+      if (end && today > end) return { key: "ended", label: "已結束" };
+      if (!end) return { key: "permanent", label: "常駐" };
+      return { key: "active", label: "進行中" };
+    }
+
+    function parseEventCoordinateLines(coordsText) {
+      return String(coordsText || "")
+        .replace(/\r\n/g, "\n")
+        .split("\n")
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map((line, index) => {
+          const semicolon = line.indexOf(";");
+          const name = semicolon >= 0 ? line.slice(0, semicolon).trim() : `座標 ${index + 1}`;
+          const coordText = semicolon >= 0 ? line.slice(semicolon + 1).trim() : line;
+          const match = coordText.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+          if (!match) return null;
+          const lat = Number(match[1]);
+          const lon = Number(match[2]);
+          if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+          return { name: name || `座標 ${index + 1}`, lat, lon };
+        })
+        .filter(Boolean);
+    }
+
+    function buildEventGpx(eventData) {
+      const points = parseEventCoordinateLines(eventData.coords);
+      const trackName = eventData.name || "活動座標";
+      const wpts = points.map(point =>
+        `  <wpt lat="${escapeXml(point.lat.toFixed(6))}" lon="${escapeXml(point.lon.toFixed(6))}"><name>${escapeXml(point.name)}</name></wpt>`
+      ).join("\n");
+      const trkpts = points.map(point =>
+        `      <trkpt lat="${escapeXml(point.lat.toFixed(6))}" lon="${escapeXml(point.lon.toFixed(6))}"><name>${escapeXml(point.name)}</name></trkpt>`
+      ).join("\n");
+      return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="XiaoXiao">\n${wpts}\n  <trk>\n    <name>${escapeXml(trackName)}</name>\n    <trkseg>\n${trkpts}\n    </trkseg>\n  </trk>\n</gpx>`;
+    }
+
+    function downloadTextFile(text, fileName) {
+      const blob = new Blob([text], { type: "application/gpx+xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    async function copyEventCoords(id) {
+      const eventData = events.find(item => String(item.id) === String(id));
+      if (!eventData) return;
+      const points = parseEventCoordinateLines(eventData.coords);
+      if (!points.length) return showToast("這個活動沒有有效座標");
+      const text = points.map(point => `${point.lat.toFixed(6)},${point.lon.toFixed(6)}`).join("\n");
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (error) {
+        const temp = document.createElement("textarea");
+        temp.value = text;
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand("copy");
+        temp.remove();
+      }
+      showToast(`已複製 ${points.length} 個活動座標`);
+    }
+
+    async function copyEventGpx(id) {
+      const eventData = events.find(item => String(item.id) === String(id));
+      if (!eventData) return;
+      const points = parseEventCoordinateLines(eventData.coords);
+      if (!points.length) return showToast("這個活動沒有有效座標");
+
+      const wpts = points.map(point =>
+        `  <wpt lat="${escapeXml(point.lat.toFixed(6))}" lon="${escapeXml(point.lon.toFixed(6))}"><name>${escapeXml(point.name)}</name></wpt>`
+      ).join("\n");
+      const wptGpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="XiaoXiao">\n${wpts}\n</gpx>`;
+
+      try {
+        await navigator.clipboard.writeText(wptGpx);
+      } catch (error) {
+        const temp = document.createElement("textarea");
+        temp.value = wptGpx;
+        temp.style.position = "fixed";
+        temp.style.opacity = "0";
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand("copy");
+        temp.remove();
+      }
+      showToast(`已複製 AR WPT（${points.length} 個座標）`);
+    }
+
+    function downloadEventGpx(id) {
+      const eventData = events.find(item => String(item.id) === String(id));
+      if (!eventData) return;
+      const points = parseEventCoordinateLines(eventData.coords);
+      if (!points.length) return showToast("這個活動沒有有效座標");
+      const fileName = `${sanitizeFileName(`活動_${eventData.name || "活動座標"}`)}.gpx`;
+      downloadTextFile(buildEventGpx(eventData), fileName);
+      showToast(`已下載 GPX：${fileName}`);
+    }
+
+    function renderEventTable(list) {
+      if (!list.length) return "";
+      return `
+        <div class="event-table-header">
+          <div class="event-cell">活動名稱</div>
+          <div class="event-cell">活動間隔</div>
+          <div class="event-cell">活動期間</div>
+          <div class="event-cell">座標數量</div>
+          <div class="event-cell">備註</div>
+          <div class="event-cell">狀態 / 操作</div>
+        </div>
+        ${list.map(renderEventCard).join("")}
+      `;
+    }
+
+    function renderEventCard(eventData) {
+      const status = getEventStatus(eventData);
+      const points = parseEventCoordinateLines(eventData.coords);
+      const period = `${formatEventDate(eventData.startDate) || "未設定"} ~ ${eventData.endDate ? (formatEventDate(eventData.endDate) || "未設定") : "常駐"}`;
+      const interval = EVENT_INTERVAL_LABELS[eventData.interval] || eventData.interval || "未設定";
+      const safeId = String(eventData.id || "").replace(/'/g, "\\'");
+
+      return `
+        <article class="event-card ${status.key === "ended" ? "ended" : ""}">
+          <div class="event-cell event-name-cell"><h3 class="event-card-title">${escapeHtml(eventData.name || "未命名活動")}</h3></div>
+          <div class="event-cell event-interval-cell"><span class="event-mobile-label">活動間隔</span>${escapeHtml(interval)}</div>
+          <div class="event-cell event-period-cell"><span class="event-mobile-label">活動期間</span>${escapeHtml(period)}</div>
+          <div class="event-cell"><span class="event-mobile-label">座標數量</span>${points.length} 個</div>
+          <div class="event-cell"><span class="event-mobile-label">備註</span>${escapeHtml(eventData.note || "—")}</div>
+          <div class="event-cell event-operation-cell">
+            <span class="event-mobile-label">狀態 / 操作</span>
+            <span class="event-status ${status.key}">${escapeHtml(status.label)}</span>
+            <div class="event-actions">
+              <button onclick="copyEventCoords('${safeId}')">複製座標</button>
+              <button class="secondary" onclick="copyEventGpx('${safeId}')">AR複製</button>
+              <button class="download" onclick="downloadEventGpx('${safeId}')">下載 GPX</button>
+            </div>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderEvents() {
+      $("loadingMessage").style.display = "none";
+
+      const current = [];
+      const ended = [];
+      events.forEach(eventData => {
+        (getEventStatus(eventData).key === "ended" ? ended : current).push(eventData);
+      });
+
+      $("eventsGrid").innerHTML = renderEventTable(current);
+      $("endedEventsGrid").innerHTML = renderEventTable(ended);
+      $("endedEventsGrid").style.display = ended.length ? "block" : "none";
+      $("endedEventsTitle").style.display = ended.length ? "block" : "none";
+      $("eventsCount").textContent = events.length ? `共 ${events.length} 個活動` : "";
+
+      const counts = events.reduce((result, eventData) => {
+        const key = getEventStatus(eventData).key;
+        result[key] = (result[key] || 0) + 1;
+        return result;
+      }, {});
+
+      const summaryParts = [
+        `進行中 ${counts.active || 0} 個`,
+        `常駐 ${counts.permanent || 0} 個`
+      ];
+      if (counts.upcoming) summaryParts.push(`尚未開始 ${counts.upcoming} 個`);
+      $("eventSummaryText").textContent = summaryParts.join(" ｜ ");
+
+      $("eventsSection").style.display = events.length ? "block" : "none";
+      $("eventsEmpty").style.display = events.length ? "none" : "block";
+    }
+
+    window.copyEventCoords = copyEventCoords;
+    window.copyEventGpx = copyEventGpx;
+    window.downloadEventGpx = downloadEventGpx;
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        checkDataVersion();
+        startVersionTimer();
+      } else if (versionTimer) {
+        clearInterval(versionTimer);
+        versionTimer = null;
+      }
+    });
+
+    const restored = restoreCache();
+    loadEvents({ showLoading: !restored });
+    startVersionTimer();
+  </script>
+</body>
+</html>
