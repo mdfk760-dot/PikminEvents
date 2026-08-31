@@ -157,12 +157,12 @@
     .event-card {
       display: grid;
       grid-template-columns:
-        minmax(125px, 0.95fr)
-        minmax(128px, 0.82fr)
-        minmax(172px, 0.9fr)
-        minmax(74px, 0.48fr)
-        minmax(110px, 0.82fr)
-        minmax(290px, 1.75fr);
+        minmax(118px, 0.88fr)
+        minmax(120px, 0.76fr)
+        minmax(145px, 0.78fr)
+        minmax(68px, 0.42fr)
+        minmax(96px, 0.68fr)
+        minmax(370px, 2.25fr);
       align-items: stretch;
     }
 
@@ -248,9 +248,11 @@
 
     .event-actions button {
       width: auto;
-      padding: 7px 9px;
-      font-size: 12px;
+      padding: 7px 8px;
+      font-size: 11px;
       border-radius: 10px;
+      white-space: nowrap;
+      flex: 0 0 auto;
     }
 
     .event-mobile-label { display: none; }
@@ -742,11 +744,15 @@
         .trim() || "活動座標";
     }
 
-    function fetchWithTimeout(url, timeoutMs = FETCH_TIMEOUT) {
+    function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
-      return fetch(url, { cache: "no-store", signal: controller.signal })
-        .finally(() => clearTimeout(timer));
+
+      return fetch(url, {
+        ...options,
+        cache: "no-store",
+        signal: controller.signal
+      }).finally(() => clearTimeout(timer));
     }
 
     function saveCache() {
@@ -815,7 +821,7 @@
     async function checkDataVersion() {
       if (document.visibilityState !== "visible" || isLoading) return;
       try {
-        const res = await fetchWithTimeout(`${API_URL}?action=version&ts=${Date.now()}`, 8000);
+        const res = await fetchWithTimeout(`${API_URL}?action=version&ts=${Date.now()}`, {}, 8000);
         if (!res.ok) return;
         const data = await res.json();
         if (!data.success || data.dataVersion == null) return;
