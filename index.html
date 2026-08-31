@@ -115,6 +115,12 @@
     button.download:hover { background: #407fc9; }
     button.secondary { background: #a99586; }
     button.secondary:hover { background: #8c7a6d; }
+    button.green { background: var(--green); }
+    button.green:hover { background: var(--green-dark); }
+    button.danger { background: #d9534f; }
+    button.danger:hover { background: #bd403d; }
+    button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    button.ghost:hover { background: #fff8f2; color: var(--text); }
 
     .result-section-title {
       margin: 4px 4px 10px;
@@ -454,6 +460,53 @@
       }
     }
 
+
+    /* 活動管理員介面 */
+    .admin-login-btn { flex: 0 0 auto; }
+    .admin-panel {
+      display: none;
+      background: rgba(255,255,255,.92);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .admin-panel.active { display: block; }
+    .admin-panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 14px 18px;
+      background: rgba(255,240,245,.72); border-bottom: 1px solid var(--border);
+      cursor: pointer; user-select: none;
+    }
+    .admin-panel-title { margin:0; font-size:16px; font-weight:900; color:var(--primary-dark); }
+    .admin-panel-body { padding:18px; }
+    .admin-panel.collapsed .admin-panel-body { display:none; }
+    .admin-collapse-btn { background:transparent!important; color:var(--primary-dark)!important; padding:0!important; width:auto!important; }
+    .admin-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .admin-field.full { grid-column:1/-1; }
+    .admin-field label { display:block; font-size:13px; color:var(--muted); margin:0 0 6px 4px; font-weight:700; }
+    .admin-field input, .admin-field select, .admin-field textarea {
+      width:100%; border:1px solid var(--border); background:#fff; color:var(--text);
+      border-radius:14px; padding:10px 12px; outline:none; font:inherit;
+    }
+    .admin-field textarea { min-height:160px; resize:vertical; line-height:1.55; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; }
+    .admin-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+    .admin-hint { margin-top:10px; color:var(--muted); font-size:13px; line-height:1.6; }
+    .admin-only { display:none; }
+    body.admin-on .admin-only { display:inline-flex; }
+    dialog { position:relative; border:0; border-radius:20px; padding:24px 20px 20px; width:min(420px,calc(100% - 36px)); box-shadow:var(--shadow); }
+    dialog::backdrop { background:rgba(40,28,20,.35); }
+    #closeLoginBtn { position:absolute; top:12px; right:12px; width:36px!important; height:36px; padding:0; border-radius:50%; background:transparent; color:var(--muted); border:1px solid var(--border); font-size:24px; }
+    .login-row { display:flex; gap:10px; margin-top:14px; }
+    .login-row input { flex:1; border:1px solid var(--border); border-radius:14px; padding:10px 12px; font:inherit; }
+    @media (max-width:1024px) {
+      .admin-grid { grid-template-columns:1fr; }
+      .admin-field.full { grid-column:1; }
+      .admin-actions button { width:100%; }
+      .login-row { flex-direction:column; }
+      .login-row button { width:100%; }
+    }
+
   </style>
 </head>
 <body>
@@ -474,6 +527,55 @@
         <span class="summary-title">活動摘要</span>
         <span id="eventSummaryText" class="summary-text">讀取中...</span>
       </div>
+      <button id="adminLoginBtn" class="secondary admin-login-btn">管理員登入</button>
+      <button id="logoutBtn" class="ghost admin-login-btn" style="display:none;">管理員登出</button>
+    </section>
+
+    <section id="adminPanel" class="admin-panel">
+      <div id="adminPanelHeader" class="admin-panel-header" role="button" tabindex="0" aria-expanded="true">
+        <h2 class="admin-panel-title">活動座標管理</h2>
+        <button id="adminCollapseBtn" class="admin-collapse-btn" type="button">▲</button>
+      </div>
+      <div class="admin-panel-body">
+        <div class="admin-grid">
+          <div class="admin-field">
+            <label for="eventNameInput">活動名稱</label>
+            <input id="eventNameInput" type="text" placeholder="例如：京都活動盆栽">
+          </div>
+          <div class="admin-field">
+            <label for="eventIntervalInput">活動盆間隔</label>
+            <select id="eventIntervalInput">
+              <option value="1day">每1天一次</option>
+              <option value="7days">每7天一次</option>
+              <option value="30days">每30天一次</option>
+              <option value="monthly1st">每月1號刷新</option>
+              <option value="once">活動期間限一次</option>
+            </select>
+          </div>
+          <div class="admin-field">
+            <label for="eventStartDateInput">活動開始日期 / 時間</label>
+            <input id="eventStartDateInput" type="datetime-local">
+          </div>
+          <div class="admin-field">
+            <label for="eventEndDateInput">活動結束日期 / 時間（常駐請留空）</label>
+            <input id="eventEndDateInput" type="datetime-local">
+          </div>
+          <div class="admin-field full">
+            <label for="eventCoordsInput">活動座標（每行：名稱;緯度,經度）</label>
+            <textarea id="eventCoordsInput" placeholder="台北車站;25.047760,121.517058
+西門町;25.042236,121.507987"></textarea>
+          </div>
+          <div class="admin-field full">
+            <label for="eventNoteInput">備註</label>
+            <input id="eventNoteInput" type="text" placeholder="例如：每日 00:00 重置">
+          </div>
+        </div>
+        <div class="admin-actions">
+          <button id="saveEventBtn" class="green">新增活動</button>
+          <button id="clearEventFormBtn" class="ghost">清空輸入</button>
+        </div>
+        <div class="admin-hint">登入後可新增、編輯與刪除活動。日期欄位支援時間；常駐活動請將結束日期留空。</div>
+      </div>
     </section>
 
     <div id="loadingMessage" class="empty" style="display:block;">🎪 正在載入活動資料...</div>
@@ -491,6 +593,16 @@
   </main>
 
   <footer class="page-footer-note">活動資料以網站公告內容為準。</footer>
+
+  <dialog id="loginDialog">
+    <button id="closeLoginBtn" type="button" aria-label="關閉">&times;</button>
+    <h3 style="margin:0 44px 0 0;">管理員登入</h3>
+    <p style="color:var(--muted);line-height:1.6;">請輸入活動管理員密碼。</p>
+    <div class="login-row">
+      <input id="passwordInput" type="password" placeholder="請輸入密碼">
+      <button id="confirmLoginBtn">登入</button>
+    </div>
+  </dialog>
   <div id="toast" class="toast"></div>
 
   <script>
@@ -515,6 +627,9 @@
     let toastTimer = null;
     let isLoading = false;
     let versionTimer = null;
+    let adminPassword = sessionStorage.getItem("pikminActivityAdminPassword") || "";
+    let isAdmin = false;
+    let editingEventId = null;
 
     const $ = id => document.getElementById(id);
 
@@ -997,6 +1112,90 @@
       showToast(`已下載 GPX：${fileName}`);
     }
 
+
+    async function verifyAdminPassword(password) {
+      const res = await fetchWithTimeout(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "verify", accessPassword: password })
+      });
+      const data = await res.json();
+      return { success: !!data.success && data.role === "admin", data };
+    }
+
+    function setAdminMode(enabled) {
+      isAdmin = !!enabled;
+      document.body.classList.toggle("admin-on", isAdmin);
+      $("adminPanel").classList.toggle("active", isAdmin);
+      $("adminLoginBtn").style.display = isAdmin ? "none" : "inline-block";
+      $("logoutBtn").style.display = isAdmin ? "inline-block" : "none";
+      renderEvents();
+    }
+
+    function clearEventForm() {
+      editingEventId = null;
+      $("eventNameInput").value = "";
+      $("eventIntervalInput").value = "1day";
+      $("eventStartDateInput").value = "";
+      $("eventEndDateInput").value = "";
+      $("eventCoordsInput").value = "";
+      $("eventNoteInput").value = "";
+      $("saveEventBtn").textContent = "新增活動";
+    }
+
+    function toDateTimeLocalValue(value) {
+      const parsed = parseEventDateValue(value, { endOfDayWhenDateOnly: false });
+      if (!parsed || !parsed.date) return "";
+      const d = parsed.date;
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Taipei", year:"numeric", month:"2-digit", day:"2-digit",
+        hour:"2-digit", minute:"2-digit", hourCycle:"h23"
+      }).formatToParts(d).reduce((o,p)=>(o[p.type]=p.value,o),{});
+      return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+    }
+
+    function editEventItem(id) {
+      const eventData = events.find(item => String(item.id) === String(id));
+      if (!eventData || !isAdmin) return;
+      editingEventId = eventData.id;
+      $("eventNameInput").value = eventData.name || "";
+      $("eventIntervalInput").value = eventData.interval === "1month" ? "monthly1st" : (eventData.interval || "1day");
+      $("eventStartDateInput").value = toDateTimeLocalValue(eventData.startDate);
+      $("eventEndDateInput").value = eventData.endDate ? toDateTimeLocalValue(eventData.endDate) : "";
+      $("eventCoordsInput").value = String(eventData.coords || "").replace(/\r\n/g, "\n");
+      $("eventNoteInput").value = eventData.note || "";
+      $("saveEventBtn").textContent = "更新活動";
+      $("adminPanel").classList.remove("collapsed");
+      $("adminCollapseBtn").textContent = "▲";
+      $("adminPanel").scrollIntoView({ behavior:"smooth", block:"start" });
+    }
+
+    async function saveEventToSheet(eventData) {
+      const res = await fetchWithTimeout(API_URL, {
+        method:"POST",
+        headers:{ "Content-Type":"text/plain;charset=utf-8" },
+        body:JSON.stringify({ action:"saveEvent", adminPassword, event:eventData })
+      });
+      return await res.json();
+    }
+
+    async function deleteEventItem(id) {
+      if (!isAdmin) return;
+      const eventData = events.find(item => String(item.id) === String(id));
+      if (!eventData) return;
+      if (!confirm(`確定要刪除「${eventData.name || "此活動"}」嗎？`)) return;
+      const res = await fetchWithTimeout(API_URL, {
+        method:"POST",
+        headers:{ "Content-Type":"text/plain;charset=utf-8" },
+        body:JSON.stringify({ action:"deleteEvent", adminPassword, id })
+      });
+      const data = await res.json();
+      if (!data.success) { alert(data.message || "刪除失敗"); return; }
+      clearEventForm();
+      await loadEvents({ showLoading:false });
+      showToast("已刪除活動");
+    }
+
     function renderEventTable(list) {
       if (!list.length) return "";
       return `
@@ -1035,6 +1234,11 @@
               <button class="secondary" onclick="copyEventGpx('${safeId}')">AR複製</button>
               <button class="download" onclick="downloadEventGpx('${safeId}')">下載 GPX</button>
             </div>`}
+            ${isAdmin ? `
+            <div class="event-actions">
+              <button class="green" onclick="editEventItem('${safeId}')">編輯</button>
+              <button class="danger" onclick="deleteEventItem('${safeId}')">刪除</button>
+            </div>` : ""}
           </div>
         </article>
       `;
@@ -1092,6 +1296,8 @@
     window.copyEventCoords = copyEventCoords;
     window.copyEventGpx = copyEventGpx;
     window.downloadEventGpx = downloadEventGpx;
+    window.editEventItem = editEventItem;
+    window.deleteEventItem = deleteEventItem;
 
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") {
@@ -1103,6 +1309,83 @@
       }
     });
 
+
+
+    $("adminLoginBtn").addEventListener("click", () => $("loginDialog").showModal());
+    $("closeLoginBtn").addEventListener("click", () => $("loginDialog").close());
+    $("passwordInput").addEventListener("keydown", e => { if (e.key === "Enter") $("confirmLoginBtn").click(); });
+    $("confirmLoginBtn").addEventListener("click", async () => {
+      const password = $("passwordInput").value;
+      if (!password) { alert("請輸入密碼。"); return; }
+      const btn = $("confirmLoginBtn");
+      btn.disabled = true; btn.textContent = "驗證中…";
+      try {
+        const result = await verifyAdminPassword(password);
+        if (!result.success) { alert(result.data?.message || "管理員密碼錯誤。"); return; }
+        adminPassword = password;
+        sessionStorage.setItem("pikminActivityAdminPassword", password);
+        $("passwordInput").value = "";
+        $("loginDialog").close();
+        setAdminMode(true);
+        showToast("已進入活動管理模式");
+      } catch (e) {
+        alert("暫時無法驗證管理員權限，請稍後再試。");
+      } finally {
+        btn.disabled = false; btn.textContent = "登入";
+      }
+    });
+    $("logoutBtn").addEventListener("click", () => {
+      adminPassword = "";
+      sessionStorage.removeItem("pikminActivityAdminPassword");
+      clearEventForm();
+      setAdminMode(false);
+      showToast("已登出管理員");
+    });
+    $("adminPanelHeader").addEventListener("click", () => {
+      const panel = $("adminPanel");
+      const collapsed = !panel.classList.contains("collapsed");
+      panel.classList.toggle("collapsed", collapsed);
+      $("adminCollapseBtn").textContent = collapsed ? "▼" : "▲";
+    });
+    $("clearEventFormBtn").addEventListener("click", clearEventForm);
+    $("saveEventBtn").addEventListener("click", async () => {
+      if (!isAdmin) return;
+      const name = $("eventNameInput").value.trim();
+      const coords = String($("eventCoordsInput").value || "").replace(/\r\n/g,"\n").trim();
+      const startDate = $("eventStartDateInput").value;
+      if (!name) { alert("請填寫活動名稱。"); $("eventNameInput").focus(); return; }
+      if (!startDate) { alert("請填寫活動開始日期。"); $("eventStartDateInput").focus(); return; }
+      if (!coords) { alert("請填寫活動座標。"); $("eventCoordsInput").focus(); return; }
+      const eventData = {
+        id: editingEventId || crypto.randomUUID(),
+        name,
+        interval: $("eventIntervalInput").value,
+        startDate,
+        endDate: $("eventEndDateInput").value,
+        coords,
+        note: $("eventNoteInput").value.trim()
+      };
+      const btn = $("saveEventBtn");
+      btn.disabled = true;
+      try {
+        const data = await saveEventToSheet(eventData);
+        if (!data.success) { alert(data.message || "儲存失敗"); return; }
+        const wasEditing = !!editingEventId;
+        clearEventForm();
+        await loadEvents({ showLoading:false });
+        showToast(wasEditing ? "已更新活動" : "已新增活動");
+      } catch (e) {
+        alert("儲存失敗，請稍後再試。");
+      } finally { btn.disabled = false; }
+    });
+
+    // 若本分頁已有管理員登入狀態，自動重新驗證。
+    if (adminPassword) {
+      verifyAdminPassword(adminPassword).then(result => {
+        if (result.success) setAdminMode(true);
+        else { adminPassword = ""; sessionStorage.removeItem("pikminActivityAdminPassword"); }
+      }).catch(() => {});
+    }
 
     $("reloadLatestBtn").addEventListener("click", () => {
       const url = new URL(window.location.href);
