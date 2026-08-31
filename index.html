@@ -132,6 +132,11 @@
       color: var(--muted);
     }
 
+    /* 常駐活動與上方一般活動表格保留較明顯的區塊間距 */
+    #permanentEventsTitle {
+      margin-top: 30px;
+    }
+
     .events-grid {
       display: block;
       width: 100%;
@@ -184,8 +189,22 @@
     }
 
     .event-cell:last-child { border-right: 0; }
-    .event-interval-cell,
-    .event-period-cell { white-space: nowrap; }
+    .event-interval-cell { white-space: nowrap; }
+
+    .event-period-cell {
+      white-space: normal;
+    }
+
+    .event-period-lines {
+      display: grid;
+      gap: 2px;
+      line-height: 1.35;
+      white-space: nowrap;
+    }
+
+    .event-period-end {
+      color: var(--muted);
+    }
 
     .event-card-title {
       margin: 0;
@@ -231,7 +250,7 @@
     .event-mobile-label { display: none; }
 
     .events-ended-title {
-      margin: 18px 4px 10px;
+      margin: 30px 4px 10px;
       color: var(--muted);
       font-size: 15px;
       font-weight: 900;
@@ -301,6 +320,14 @@
         margin-top: 3px;
       }
 
+      #permanentEventsTitle {
+        margin-top: 24px;
+      }
+
+      .events-ended-title {
+        margin-top: 24px;
+      }
+
       .events-grid {
         border: 0;
         border-radius: 0;
@@ -331,7 +358,7 @@
       }
 
       .event-cell:last-child { border-bottom: 0; }
-      .event-interval-cell,
+      .event-interval-cell { white-space: nowrap; }
       .event-period-cell { white-space: normal; }
 
       .event-mobile-label {
@@ -387,6 +414,8 @@
     <section id="eventsSection" style="display:none;">
       <div class="result-section-title">活動座標 <span id="eventsCount" class="sub"></span></div>
       <div id="eventsGrid" class="events-grid"></div>
+      <div id="permanentEventsTitle" class="result-section-title" style="display:none;">常駐活動 <span id="permanentEventsCount" class="sub"></span></div>
+      <div id="permanentEventsGrid" class="events-grid" style="display:none;"></div>
       <div id="endedEventsTitle" class="events-ended-title" style="display:none;">已結束活動</div>
       <div id="endedEventsGrid" class="events-grid" style="display:none;"></div>
     </section>
@@ -549,42 +578,179 @@
       versionTimer = setInterval(checkDataVersion, DATA_VERSION_CHECK_INTERVAL);
     }
 
-    function eventDateKey(value) {
-      if (!value) return "";
+    const EVENT_TZ_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+    function getTaipeiParts(date) {
+      if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+
+      // 活動資料固定依台灣時間 UTC+8 顯示。
+      // 先把 UTC 時間平移 +8 小時，再使用 UTC 欄位讀值，
+      // 可完全避免瀏覽器所在地時區造成 8/31 顯示成 8/30。
+      const shifted = new Date(date.getTime() + EVENT_TZ_OFFSET_MS);
+      return {
+        year: shifted.getUTCFullYear(),
+        month: shifted.getUTCMonth() + 1,
+        day: shifted.getUTCDate(),
+        hour: shifted.getUTCHours(),
+        minute: shifted.getUTCMinutes()
+      };
+    }
+
+    function taipeiWallTimeToDate(year, month, day, hour = 0, minute = 0, second = 0) {
+      // 把「台灣牆上時間」轉成真正 UTC Date。
+      return new Date(Date.UTC(year, month - 1, day, hour - 8, minute, second, 0));
+    }
+
+    function parseEventDateValue(value, { endOfDayWhenDateOnly = false } = {}) {
+      if (!value) return null;
+
       if (Object.prototype.toString.call(value) === "[object Date]") {
-        const y = value.getFullYear();
-        const m = String(value.getMonth() + 1).padStart(2, "0");
-        const d = String(value.getDate()).padStart(2, "0");
-        return `${y}-${m}-${d}`;
+        const date = new Date(value.getTime());
+        const parts = getTaipeiParts(date);
+        if (!parts) return null;
+        const hasTime = parts.hour !== 0 || parts.minute !== 0;
+        if (endOfDayWhenDateOnly && !hasTime) {
+          return {
+            date: taipeiWallTimeToDate(parts.year, parts.month, parts.day, 23, 59, 59),
+            hasTime: false
+          };
+        }
+        return { date, hasTime };
       }
+
       const text = String(value).trim();
-      const direct = text.match(/^(\d{4})[-\/]?(\d{1,2})[-\/]?(\d{1,2})/);
-      if (direct) return `${direct[1]}-${String(Number(direct[2])).padStart(2, "0")}-${String(Number(direct[3])).padStart(2, "0")}`;
+      if (!text) return null;
+
+      // Google Sheet / Apps Script 常回傳 ISO UTC，例如：
+      // 2026-08-30T16:00:00.000Z = 台灣 2026/08/31 00:00。
+      if (/^\d{4}-\d{2}-\d{2}T/.test(text)) {
+        const date = new Date(text);
+        if (Number.isNaN(date.getTime())) return null;
+        const parts = getTaipeiParts(date);
+        if (!parts) return null;
+        const hasTime = parts.hour !== 0 || parts.minute !== 0;
+        if (endOfDayWhenDateOnly && !hasTime) {
+          return {
+            date: taipeiWallTimeToDate(parts.year, parts.month, parts.day, 23, 59, 59),
+            hasTime: false
+          };
+        }
+        return { date, hasTime };
+      }
+
+      // 也支援後端若直接回傳文字：
+      // 2026/08/31
+      // 2026/09/30 18:00
+      const localMatch = text.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?$/);
+      if (localMatch) {
+        const year = Number(localMatch[1]);
+        const month = Number(localMatch[2]);
+        const day = Number(localMatch[3]);
+        const hasTime = localMatch[4] != null;
+        const hour = hasTime ? Number(localMatch[4]) : (endOfDayWhenDateOnly ? 23 : 0);
+        const minute = hasTime ? Number(localMatch[5]) : (endOfDayWhenDateOnly ? 59 : 0);
+        const second = !hasTime && endOfDayWhenDateOnly ? 59 : 0;
+        return {
+          date: taipeiWallTimeToDate(year, month, day, hour, minute, second),
+          hasTime
+        };
+      }
+
       const date = new Date(text);
-      if (Number.isNaN(date.getTime())) return "";
-      const taipei = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit"
-      }).format(date);
-      return taipei;
+      if (Number.isNaN(date.getTime())) return null;
+      const parts = getTaipeiParts(date);
+      if (!parts) return null;
+      const hasTime = parts.hour !== 0 || parts.minute !== 0;
+      if (endOfDayWhenDateOnly && !hasTime) {
+        return {
+          date: taipeiWallTimeToDate(parts.year, parts.month, parts.day, 23, 59, 59),
+          hasTime: false
+        };
+      }
+      return { date, hasTime };
     }
 
     function formatEventDate(value) {
-      const key = eventDateKey(value);
-      return key ? key.replace(/-/g, "/") : "";
+      const parsed = parseEventDateValue(value);
+      if (!parsed) return "";
+      const parts = getTaipeiParts(parsed.date);
+      if (!parts) return "";
+      const y = String(parts.year).padStart(4, "0");
+      const m = String(parts.month).padStart(2, "0");
+      const d = String(parts.day).padStart(2, "0");
+      const hh = String(parts.hour).padStart(2, "0");
+      const mm = String(parts.minute).padStart(2, "0");
+      return parsed.hasTime ? `${y}/${m}/${d} ${hh}:${mm}` : `${y}/${m}/${d}`;
     }
 
-    function todayTaipeiKey() {
-      return new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit"
-      }).format(new Date());
+    function formatEventPeriodPart(parsed, includeYear) {
+      if (!parsed) return "";
+      const parts = getTaipeiParts(parsed.date);
+      if (!parts) return "";
+
+      const y = String(parts.year).padStart(4, "0");
+      const m = String(parts.month).padStart(2, "0");
+      const d = String(parts.day).padStart(2, "0");
+      const hh = String(parts.hour).padStart(2, "0");
+      const mm = String(parts.minute).padStart(2, "0");
+      const dateText = includeYear ? `${y}/${m}/${d}` : `${m}/${d}`;
+      return parsed.hasTime ? `${dateText} ${hh}:${mm}` : dateText;
+    }
+
+    function buildEventPeriodHtml(eventData) {
+      const start = parseEventDateValue(eventData.startDate, { endOfDayWhenDateOnly: false });
+      const end = parseEventDateValue(eventData.endDate, { endOfDayWhenDateOnly: true });
+
+      if (!start && !end) {
+        return '<div class="event-period-lines"><div>未設定</div></div>';
+      }
+
+      const startParts = start ? getTaipeiParts(start.date) : null;
+      const endParts = end ? getTaipeiParts(end.date) : null;
+      const nowParts = getTaipeiParts(new Date());
+      const currentYear = nowParts ? nowParts.year : new Date().getFullYear();
+
+      // 只有「開始、結束都在今年」時才省略年份。
+      // 跨年度活動兩邊都顯示年份；常駐活動若從過去年份開始，也保留開始年份。
+      const bothWithinCurrentYear = !!(
+        startParts &&
+        endParts &&
+        startParts.year === currentYear &&
+        endParts.year === currentYear
+      );
+      const startIncludeYear = startParts
+        ? (!end ? startParts.year !== currentYear : !bothWithinCurrentYear)
+        : false;
+      const endIncludeYear = endParts
+        ? (!start ? endParts.year !== currentYear : !bothWithinCurrentYear)
+        : false;
+
+      const startText = start
+        ? formatEventPeriodPart(start, startIncludeYear)
+        : "未設定";
+      const endText = end
+        ? formatEventPeriodPart(end, endIncludeYear)
+        : "常駐";
+
+      return `
+        <div class="event-period-lines">
+          <div>${escapeHtml(startText)}</div>
+          <div class="event-period-end">~ ${escapeHtml(endText)}</div>
+        </div>
+      `;
     }
 
     function getEventStatus(eventData) {
-      const today = todayTaipeiKey();
-      const start = eventDateKey(eventData.startDate);
-      const end = eventDateKey(eventData.endDate);
-      if (start && today < start) return { key: "upcoming", label: "尚未開始" };
-      if (end && today > end) return { key: "ended", label: "已結束" };
+      const now = new Date();
+      const start = parseEventDateValue(eventData.startDate, { endOfDayWhenDateOnly: false });
+      const end = parseEventDateValue(eventData.endDate, { endOfDayWhenDateOnly: true });
+
+      if (start && now.getTime() < start.date.getTime()) {
+        return { key: "upcoming", label: "尚未開始" };
+      }
+      if (end && now.getTime() > end.date.getTime()) {
+        return { key: "ended", label: "已結束" };
+      }
       if (!end) return { key: "permanent", label: "常駐" };
       return { key: "active", label: "進行中" };
     }
@@ -706,7 +872,7 @@
     function renderEventCard(eventData) {
       const status = getEventStatus(eventData);
       const points = parseEventCoordinateLines(eventData.coords);
-      const period = `${formatEventDate(eventData.startDate) || "未設定"} ~ ${eventData.endDate ? (formatEventDate(eventData.endDate) || "未設定") : "常駐"}`;
+      const periodHtml = buildEventPeriodHtml(eventData);
       const interval = EVENT_INTERVAL_LABELS[eventData.interval] || eventData.interval || "未設定";
       const safeId = String(eventData.id || "").replace(/'/g, "\\'");
 
@@ -714,17 +880,18 @@
         <article class="event-card ${status.key === "ended" ? "ended" : ""}">
           <div class="event-cell event-name-cell"><h3 class="event-card-title">${escapeHtml(eventData.name || "未命名活動")}</h3></div>
           <div class="event-cell event-interval-cell"><span class="event-mobile-label">活動間隔</span>${escapeHtml(interval)}</div>
-          <div class="event-cell event-period-cell"><span class="event-mobile-label">活動期間</span>${escapeHtml(period)}</div>
+          <div class="event-cell event-period-cell"><span class="event-mobile-label">活動期間</span>${periodHtml}</div>
           <div class="event-cell"><span class="event-mobile-label">座標數量</span>${points.length} 個</div>
           <div class="event-cell"><span class="event-mobile-label">備註</span>${escapeHtml(eventData.note || "—")}</div>
           <div class="event-cell event-operation-cell">
             <span class="event-mobile-label">狀態 / 操作</span>
             <span class="event-status ${status.key}">${escapeHtml(status.label)}</span>
+            ${status.key === "ended" ? "" : `
             <div class="event-actions">
               <button onclick="copyEventCoords('${safeId}')">複製座標</button>
               <button class="secondary" onclick="copyEventGpx('${safeId}')">AR複製</button>
               <button class="download" onclick="downloadEventGpx('${safeId}')">下載 GPX</button>
-            </div>
+            </div>`}
           </div>
         </article>
       `;
@@ -734,16 +901,33 @@
       $("loadingMessage").style.display = "none";
 
       const current = [];
+      const permanent = [];
       const ended = [];
+
       events.forEach(eventData => {
-        (getEventStatus(eventData).key === "ended" ? ended : current).push(eventData);
+        const statusKey = getEventStatus(eventData).key;
+        if (statusKey === "ended") {
+          ended.push(eventData);
+        } else if (statusKey === "permanent") {
+          permanent.push(eventData);
+        } else {
+          // 進行中與尚未開始都留在主要「活動座標」區塊。
+          current.push(eventData);
+        }
       });
 
       $("eventsGrid").innerHTML = renderEventTable(current);
+      $("eventsGrid").style.display = current.length ? "block" : "none";
+
+      $("permanentEventsGrid").innerHTML = renderEventTable(permanent);
+      $("permanentEventsGrid").style.display = permanent.length ? "block" : "none";
+      $("permanentEventsTitle").style.display = permanent.length ? "flex" : "none";
+      $("permanentEventsCount").textContent = permanent.length ? `共 ${permanent.length} 個活動` : "";
+
       $("endedEventsGrid").innerHTML = renderEventTable(ended);
       $("endedEventsGrid").style.display = ended.length ? "block" : "none";
       $("endedEventsTitle").style.display = ended.length ? "block" : "none";
-      $("eventsCount").textContent = events.length ? `共 ${events.length} 個活動` : "";
+      $("eventsCount").textContent = current.length ? `共 ${current.length} 個活動` : "";
 
       const counts = events.reduce((result, eventData) => {
         const key = getEventStatus(eventData).key;
