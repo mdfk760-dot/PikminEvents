@@ -563,7 +563,7 @@
             <label for="eventStartDateInput">活動開始日期</label>
             <div class="date-time-row">
               <input id="eventStartDateInput" type="date">
-              <input id="eventStartTimeInput" type="time" step="60" aria-label="活動開始時間（選填）">
+              <input id="eventStartTimeInput" type="text" inputmode="numeric" maxlength="5" placeholder="HH:mm" autocomplete="off" aria-label="活動開始時間（24小時制，選填）">
             </div>
             <div class="field-subhint">時間選填；未填時間時只記錄日期。</div>
           </div>
@@ -571,7 +571,7 @@
             <label for="eventEndDateInput">活動結束日期（常駐請留空）</label>
             <div class="date-time-row">
               <input id="eventEndDateInput" type="date">
-              <input id="eventEndTimeInput" type="time" step="60" aria-label="活動結束時間（選填）">
+              <input id="eventEndTimeInput" type="text" inputmode="numeric" maxlength="5" placeholder="HH:mm" autocomplete="off" aria-label="活動結束時間（24小時制，選填）">
             </div>
             <div class="field-subhint">時間選填；未填時間時只記錄日期。</div>
           </div>
@@ -1185,13 +1185,41 @@
       };
     }
 
+    function normalize24HourTime(value) {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+
+      const compact = raw.replace(/[^0-9]/g, "");
+      let hour = "";
+      let minute = "";
+
+      if (/^\d{3}$/.test(compact)) {
+        hour = compact.slice(0, 1);
+        minute = compact.slice(1);
+      } else if (/^\d{4}$/.test(compact)) {
+        hour = compact.slice(0, 2);
+        minute = compact.slice(2);
+      } else {
+        const match = raw.match(/^(\d{1,2}):(\d{2})$/);
+        if (!match) return null;
+        hour = match[1];
+        minute = match[2];
+      }
+
+      const h = Number(hour);
+      const m = Number(minute);
+      if (!Number.isInteger(h) || !Number.isInteger(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+
     function buildStoredEventDate(dateValue, timeValue) {
       const date = String(dateValue || "").trim();
-      const time = String(timeValue || "").trim();
+      const normalizedTime = normalize24HourTime(timeValue);
       if (!date) return "";
+      if (normalizedTime === null) return null;
 
       const normalizedDate = date.replace(/-/g, "/");
-      return time ? `${normalizedDate} ${time}` : normalizedDate;
+      return normalizedTime ? `${normalizedDate} ${normalizedTime}` : normalizedDate;
     }
 
     function editEventItem(id) {
@@ -1392,6 +1420,13 @@
       $("adminCollapseBtn").textContent = collapsed ? "▼" : "▲";
     });
     $("clearEventFormBtn").addEventListener("click", clearEventForm);
+    ["eventStartTimeInput", "eventEndTimeInput"].forEach(id => {
+      $(id).addEventListener("blur", () => {
+        const normalized = normalize24HourTime($(id).value);
+        if (normalized !== null) $(id).value = normalized;
+      });
+    });
+
     $("saveEventBtn").addEventListener("click", async () => {
       if (!isAdmin) return;
       const name = $("eventNameInput").value.trim();
@@ -1410,6 +1445,17 @@
 
       const startDate = buildStoredEventDate(startDateOnly, startTimeOnly);
       const endDate = buildStoredEventDate(endDateOnly, endTimeOnly);
+
+      if (startDate === null) {
+        alert("活動開始時間請使用 24 小時制 HH:mm，例如 09:30 或 18:00。");
+        $("eventStartTimeInput").focus();
+        return;
+      }
+      if (endDate === null) {
+        alert("活動結束時間請使用 24 小時制 HH:mm，例如 09:30 或 18:00。");
+        $("eventEndTimeInput").focus();
+        return;
+      }
 
       const eventData = {
         id: editingEventId || crypto.randomUUID(),
