@@ -393,9 +393,76 @@
         min-width: 0;
       }
     }
+  
+
+    /* 網站 HTML 更新提示：沿用開花公告樣式 */
+    .site-update-banner {
+      position: fixed;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-18px);
+      z-index: 1000;
+      width: min(560px, calc(100% - 28px));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.97);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+    }
+
+    .site-update-banner.active {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .site-update-banner-text {
+      min-width: 0;
+      line-height: 1.45;
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .site-update-banner button {
+      flex: 0 0 auto;
+      width: auto;
+      white-space: nowrap;
+      padding: 9px 12px;
+    }
+
+    @media (max-width: 1024px) {
+      .site-update-banner {
+        top: 10px;
+        align-items: stretch;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .site-update-banner button {
+        width: 100%;
+      }
+    }
+
   </style>
 </head>
 <body>
+
+  <div id="siteUpdateBanner" class="site-update-banner" role="status" aria-live="polite">
+    <div class="site-update-banner-text">🌱 網站有新版本，請重新整理取得最新版。</div>
+    <button id="reloadLatestBtn" type="button">重新整理</button>
+  </div>
+
   <header>
     <h1>🎪 妖妖活動公告</h1>
     <p>查看活動座標，一鍵複製座標或下載 GPX。</p>
@@ -450,6 +517,82 @@
     let versionTimer = null;
 
     const $ = id => document.getElementById(id);
+
+
+    // 網站發布新版時，提醒仍開著舊頁面的使用者重新整理。
+    const SITE_UPDATE_CHECK_INTERVAL = 60 * 1000;
+    let publishedPageFingerprint = null;
+    let siteUpdateTimer = null;
+    let siteUpdateDetected = false;
+
+    function hashText(text) {
+      let hash = 2166136261;
+      for (let i = 0; i < text.length; i++) {
+        hash ^= text.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+      return (hash >>> 0).toString(16);
+    }
+
+    async function getPublishedPageFingerprint() {
+      const url = new URL(window.location.origin + window.location.pathname);
+      url.searchParams.set("_updateCheck", Date.now());
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        cache: "no-store"
+      });
+
+      if (!response.ok) throw new Error(`版本檢查 HTTP ${response.status}`);
+      return hashText(await response.text());
+    }
+
+    function showSiteUpdateBanner() {
+      if (siteUpdateDetected) return;
+      siteUpdateDetected = true;
+      const banner = $("siteUpdateBanner");
+      if (banner) banner.classList.add("active");
+    }
+
+    async function checkForSiteUpdate({ initialize = false } = {}) {
+      if (siteUpdateDetected) return;
+      if (!initialize && document.visibilityState !== "visible") return;
+
+      try {
+        const fingerprint = await getPublishedPageFingerprint();
+
+        if (!publishedPageFingerprint || initialize) {
+          publishedPageFingerprint = fingerprint;
+          return;
+        }
+
+        if (fingerprint === publishedPageFingerprint) return;
+
+        // 第一次發現不同後再確認一次，避免 GitHub Pages/CDN 更新中的短暫狀態誤報。
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        if (document.visibilityState !== "visible" || siteUpdateDetected) return;
+
+        const confirmFingerprint = await getPublishedPageFingerprint();
+        if (confirmFingerprint === fingerprint && confirmFingerprint !== publishedPageFingerprint) {
+          showSiteUpdateBanner();
+        }
+      } catch (error) {
+        console.debug("網站版本檢查失敗", error);
+      }
+    }
+
+    function stopSiteUpdateTimer() {
+      if (siteUpdateTimer !== null) {
+        clearInterval(siteUpdateTimer);
+        siteUpdateTimer = null;
+      }
+    }
+
+    function startSiteUpdateTimer() {
+      stopSiteUpdateTimer();
+      if (document.visibilityState !== "visible" || siteUpdateDetected) return;
+      siteUpdateTimer = setInterval(() => checkForSiteUpdate(), SITE_UPDATE_CHECK_INTERVAL);
+    }
 
     function showToast(message) {
       const toast = $("toast");
@@ -959,6 +1102,24 @@
         versionTimer = null;
       }
     });
+
+
+    $("reloadLatestBtn").addEventListener("click", () => {
+      const url = new URL(window.location.href);
+      url.searchParams.set("_latest", Date.now());
+      window.location.replace(url.toString());
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        checkForSiteUpdate();
+        startSiteUpdateTimer();
+      } else {
+        stopSiteUpdateTimer();
+      }
+    });
+
+    checkForSiteUpdate({ initialize: true }).finally(startSiteUpdateTimer);
 
     const restored = restoreCache();
     loadEvents({ showLoading: !restored });
