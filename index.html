@@ -492,7 +492,7 @@
       border-radius:14px; padding:10px 12px; outline:none; font:inherit;
     }
     .admin-field textarea { min-height:160px; resize:vertical; line-height:1.55; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; }
-    .date-time-row { display:grid; grid-template-columns:minmax(0,1fr) 112px; gap:8px; }
+    .date-time-row { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:8px; }
     .date-time-row input { min-width:0; }
     .field-subhint { margin:5px 4px 0; color:var(--muted); font-size:12px; line-height:1.4; }
 
@@ -508,7 +508,7 @@
     @media (max-width:1024px) {
       .admin-grid { grid-template-columns:1fr; }
       .admin-field.full { grid-column:1; }
-      .date-time-row { grid-template-columns:minmax(0,1fr) 108px; }
+      .date-time-row { grid-template-columns:minmax(0,2fr) minmax(0,1fr); }
       .admin-actions button { width:100%; }
       .login-row { flex-direction:column; }
       .login-row button { width:100%; }
