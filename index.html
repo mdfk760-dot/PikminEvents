@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🎪 妖妖_活動公告</title>
+  <title>妖妖活動公告</title>
   <meta name="description" content="妖妖活動公告｜查看活動座標，一鍵複製座標或下載 GPX。" />
   <style>
     :root {
@@ -492,6 +492,10 @@
       border-radius:14px; padding:10px 12px; outline:none; font:inherit;
     }
     .admin-field textarea { min-height:160px; resize:vertical; line-height:1.55; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; }
+    .date-time-row { display:grid; grid-template-columns:minmax(0,1fr) 112px; gap:8px; }
+    .date-time-row input { min-width:0; }
+    .field-subhint { margin:5px 4px 0; color:var(--muted); font-size:12px; line-height:1.4; }
+
     .admin-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
     .admin-hint { margin-top:10px; color:var(--muted); font-size:13px; line-height:1.6; }
     .admin-only { display:none; }
@@ -504,6 +508,7 @@
     @media (max-width:1024px) {
       .admin-grid { grid-template-columns:1fr; }
       .admin-field.full { grid-column:1; }
+      .date-time-row { grid-template-columns:minmax(0,1fr) 108px; }
       .admin-actions button { width:100%; }
       .login-row { flex-direction:column; }
       .login-row button { width:100%; }
@@ -555,12 +560,20 @@
             </select>
           </div>
           <div class="admin-field">
-            <label for="eventStartDateInput">活動開始日期 / 時間</label>
-            <input id="eventStartDateInput" type="datetime-local">
+            <label for="eventStartDateInput">活動開始日期</label>
+            <div class="date-time-row">
+              <input id="eventStartDateInput" type="date">
+              <input id="eventStartTimeInput" type="time" step="60" aria-label="活動開始時間（選填）">
+            </div>
+            <div class="field-subhint">時間選填；未填時間時只記錄日期。</div>
           </div>
           <div class="admin-field">
-            <label for="eventEndDateInput">活動結束日期 / 時間（常駐請留空）</label>
-            <input id="eventEndDateInput" type="datetime-local">
+            <label for="eventEndDateInput">活動結束日期（常駐請留空）</label>
+            <div class="date-time-row">
+              <input id="eventEndDateInput" type="date">
+              <input id="eventEndTimeInput" type="time" step="60" aria-label="活動結束時間（選填）">
+            </div>
+            <div class="field-subhint">時間選填；未填時間時只記錄日期。</div>
           </div>
           <div class="admin-field full">
             <label for="eventCoordsInput">活動座標（每行：名稱;緯度,經度）</label>
@@ -576,7 +589,7 @@
           <button id="saveEventBtn" class="green">新增活動</button>
           <button id="clearEventFormBtn" class="ghost">清空輸入</button>
         </div>
-        <div class="admin-hint">登入後可新增、編輯與刪除活動。日期欄位支援時間；常駐活動請將結束日期留空。</div>
+        <div class="admin-hint">登入後可新增、編輯與刪除活動。日期必填、時間選填；時間採 24 小時制。常駐活動請將結束日期留空。</div>
       </div>
     </section>
 
@@ -1143,21 +1156,42 @@
       $("eventNameInput").value = "";
       $("eventIntervalInput").value = "1day";
       $("eventStartDateInput").value = "";
+      $("eventStartTimeInput").value = "";
       $("eventEndDateInput").value = "";
+      $("eventEndTimeInput").value = "";
       $("eventCoordsInput").value = "";
       $("eventNoteInput").value = "";
       $("saveEventBtn").textContent = "新增活動";
     }
 
-    function toDateTimeLocalValue(value) {
+    function splitEventDateTimeValue(value) {
+      if (!value) return { date: "", time: "" };
+
       const parsed = parseEventDateValue(value, { endOfDayWhenDateOnly: false });
-      if (!parsed || !parsed.date) return "";
-      const d = parsed.date;
-      const parts = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Taipei", year:"numeric", month:"2-digit", day:"2-digit",
-        hour:"2-digit", minute:"2-digit", hourCycle:"h23"
-      }).formatToParts(d).reduce((o,p)=>(o[p.type]=p.value,o),{});
-      return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+      if (!parsed || !parsed.date) return { date: "", time: "" };
+
+      const parts = getTaipeiParts(parsed.date);
+      if (!parts) return { date: "", time: "" };
+
+      const y = String(parts.year).padStart(4, "0");
+      const m = String(parts.month).padStart(2, "0");
+      const d = String(parts.day).padStart(2, "0");
+      const hh = String(parts.hour).padStart(2, "0");
+      const mm = String(parts.minute).padStart(2, "0");
+
+      return {
+        date: `${y}-${m}-${d}`,
+        time: parsed.hasTime ? `${hh}:${mm}` : ""
+      };
+    }
+
+    function buildStoredEventDate(dateValue, timeValue) {
+      const date = String(dateValue || "").trim();
+      const time = String(timeValue || "").trim();
+      if (!date) return "";
+
+      const normalizedDate = date.replace(/-/g, "/");
+      return time ? `${normalizedDate} ${time}` : normalizedDate;
     }
 
     function editEventItem(id) {
@@ -1166,8 +1200,12 @@
       editingEventId = eventData.id;
       $("eventNameInput").value = eventData.name || "";
       $("eventIntervalInput").value = eventData.interval === "1month" ? "monthly1st" : (eventData.interval || "1day");
-      $("eventStartDateInput").value = toDateTimeLocalValue(eventData.startDate);
-      $("eventEndDateInput").value = eventData.endDate ? toDateTimeLocalValue(eventData.endDate) : "";
+      const startParts = splitEventDateTimeValue(eventData.startDate);
+      const endParts = splitEventDateTimeValue(eventData.endDate);
+      $("eventStartDateInput").value = startParts.date;
+      $("eventStartTimeInput").value = startParts.time;
+      $("eventEndDateInput").value = endParts.date;
+      $("eventEndTimeInput").value = endParts.time;
       $("eventCoordsInput").value = String(eventData.coords || "").replace(/\r\n/g, "\n");
       $("eventNoteInput").value = eventData.note || "";
       $("saveEventBtn").textContent = "更新活動";
@@ -1358,16 +1396,27 @@
       if (!isAdmin) return;
       const name = $("eventNameInput").value.trim();
       const coords = String($("eventCoordsInput").value || "").replace(/\r\n/g,"\n").trim();
-      const startDate = $("eventStartDateInput").value;
+
+      const startDateOnly = $("eventStartDateInput").value;
+      const startTimeOnly = $("eventStartTimeInput").value;
+      const endDateOnly = $("eventEndDateInput").value;
+      const endTimeOnly = $("eventEndTimeInput").value;
+
       if (!name) { alert("請填寫活動名稱。"); $("eventNameInput").focus(); return; }
-      if (!startDate) { alert("請填寫活動開始日期。"); $("eventStartDateInput").focus(); return; }
+      if (!startDateOnly) { alert("請填寫活動開始日期。"); $("eventStartDateInput").focus(); return; }
+      if (startTimeOnly && !startDateOnly) { alert("請先填寫活動開始日期。"); $("eventStartDateInput").focus(); return; }
+      if (endTimeOnly && !endDateOnly) { alert("請先填寫活動結束日期，或清除結束時間。"); $("eventEndDateInput").focus(); return; }
       if (!coords) { alert("請填寫活動座標。"); $("eventCoordsInput").focus(); return; }
+
+      const startDate = buildStoredEventDate(startDateOnly, startTimeOnly);
+      const endDate = buildStoredEventDate(endDateOnly, endTimeOnly);
+
       const eventData = {
         id: editingEventId || crypto.randomUUID(),
         name,
         interval: $("eventIntervalInput").value,
         startDate,
-        endDate: $("eventEndDateInput").value,
+        endDate,
         coords,
         note: $("eventNoteInput").value.trim()
       };
