@@ -870,22 +870,65 @@
       isLoading = true;
       if (showLoading) $("loadingMessage").style.display = "block";
 
-      try {
-        const res = await fetchWithTimeout(`${API_URL}?action=list&ts=${Date.now()}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (!data.success) throw new Error(data.message || "讀取活動失敗");
+      let loadedEvents = null;
+      let loadedVersion = null;
+      let lastError = null;
 
-        // API 仍沿用開花網站的共同公開資料，只取 events。
-        events = Array.isArray(data.events) ? data.events : [];
-        currentDataVersion = data.dataVersion != null ? String(data.dataVersion) : null;
+      try {
+        // 主要來源：與開花公告共用的公開資料 API。
+        try {
+          const res = await fetchWithTimeout(`${API_URL}?action=list&ts=${Date.now()}`);
+          if (!res.ok) throw new Error(`action=list HTTP ${res.status}`);
+
+          const data = await res.json();
+          if (!data.success) throw new Error(data.message || "action=list 讀取失敗");
+          if (!Array.isArray(data.events)) throw new Error("action=list 未回傳 events");
+
+          loadedEvents = data.events;
+          loadedVersion = data.dataVersion != null ? String(data.dataVersion) : null;
+        } catch (error) {
+          lastError = error;
+          console.warn("共用公開資料讀取失敗，改用 listEvents 備援", error);
+        }
+
+        // 備援來源：只讀活動資料。
+        if (!Array.isArray(loadedEvents)) {
+          const fallbackRes = await fetchWithTimeout(`${API_URL}?action=listEvents&ts=${Date.now()}`);
+          if (!fallbackRes.ok) throw new Error(`action=listEvents HTTP ${fallbackRes.status}`);
+
+          const fallbackData = await fallbackRes.json();
+          if (!fallbackData.success || !Array.isArray(fallbackData.events)) {
+            throw new Error(fallbackData.message || "action=listEvents 讀取失敗");
+          }
+
+          loadedEvents = fallbackData.events;
+        }
+
+        events = loadedEvents;
+
+        // 若備援 API 沒有 dataVersion，就保留既有版本值；
+        // 下一次 version check 仍可正常偵測資料更新。
+        if (loadedVersion !== null) currentDataVersion = loadedVersion;
+
         saveCache();
-        renderEvents();
+
+        // 資料已成功取得後，再單獨處理畫面渲染。
+        try {
+          renderEvents();
+        } catch (renderError) {
+          console.error("活動資料渲染失敗", renderError);
+          $("eventsEmpty").textContent = "活動資料已讀取，但畫面顯示發生錯誤。";
+          $("eventsEmpty").style.display = "block";
+          return false;
+        }
+
         return true;
       } catch (error) {
-        console.error(error);
+        lastError = error || lastError;
+        console.error("活動資料讀取失敗", lastError);
+
         if (!events.length && !restoreCache()) {
-          $("eventsEmpty").textContent = error && error.name === "AbortError"
+          $("eventsEmpty").textContent = lastError && lastError.name === "AbortError"
             ? "活動資料載入逾時，請稍後重新整理。"
             : "暫時無法讀取活動資料。";
           $("eventsEmpty").style.display = "block";
