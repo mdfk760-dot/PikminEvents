@@ -343,7 +343,8 @@
         background: transparent;
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 10px 0;
+        row-gap: 16px;
+        column-gap: 0;
         overflow: visible;
       }
 
@@ -352,13 +353,13 @@
       .event-card {
         grid-column: 1 / -1;
         display: grid;
-        grid-template-columns: 1fr 1fr !important;
+        grid-template-columns: minmax(108px, 0.7fr) minmax(0, 1.3fr) !important;
         border: 1px solid var(--border);
         border-radius: 22px;
         overflow: hidden;
         background: rgba(255, 255, 255, 0.94);
         box-shadow: var(--shadow);
-        margin: 0 10px;
+        margin: 0;
       }
 
       .event-cell {
@@ -376,10 +377,26 @@
 
       .event-count-cell {
         border-right: 1px solid var(--border);
+        padding-left: 10px;
+        padding-right: 8px;
+        gap: 5px;
+      }
+
+      .event-count-cell .event-mobile-label {
+        width: auto;
+        flex: 0 0 auto;
       }
 
       .event-note-cell {
         min-width: 0;
+        padding-left: 10px;
+        padding-right: 10px;
+        gap: 6px;
+      }
+
+      .event-note-cell .event-mobile-label {
+        width: auto;
+        flex: 0 0 auto;
       }
 
       .event-note-cell {
@@ -388,7 +405,18 @@
 
       .event-cell:last-child { border-bottom: 0; }
       .event-interval-cell { white-space: nowrap; }
-      .event-period-cell { white-space: normal; }
+      .event-period-cell {
+        white-space: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .event-period-cell::-webkit-scrollbar { display: none; }
+      .event-period-lines {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+      }
       .event-period-end { white-space: nowrap; }
 
       .event-mobile-label {
