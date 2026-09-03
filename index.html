@@ -342,32 +342,54 @@
         box-shadow: none;
         background: transparent;
         display: grid;
-        gap: 12px;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px 0;
         overflow: visible;
       }
 
       .event-table-header { display: none; }
 
       .event-card {
+        grid-column: 1 / -1;
         display: grid;
-        grid-template-columns: 1fr !important;
+        grid-template-columns: 1fr 1fr !important;
         border: 1px solid var(--border);
         border-radius: 22px;
         overflow: hidden;
         background: rgba(255, 255, 255, 0.94);
         box-shadow: var(--shadow);
+        margin: 0 10px;
       }
 
       .event-cell {
+        grid-column: 1 / -1;
         border-right: 0;
         border-bottom: 1px solid var(--border);
         padding: 11px 14px;
         min-height: 44px;
       }
 
+      .event-count-cell,
+      .event-note-cell {
+        grid-column: auto;
+      }
+
+      .event-count-cell {
+        border-right: 1px solid var(--border);
+      }
+
+      .event-note-cell {
+        min-width: 0;
+      }
+
+      .event-note-cell {
+        overflow-wrap: anywhere;
+      }
+
       .event-cell:last-child { border-bottom: 0; }
       .event-interval-cell { white-space: nowrap; }
       .event-period-cell { white-space: normal; }
+      .event-period-end { white-space: nowrap; }
 
       .event-mobile-label {
         display: inline-block;
@@ -389,6 +411,10 @@
       .event-operation-cell > .event-mobile-label {
         width: 100%;
         flex: 0 0 100%;
+      }
+
+      .event-operation-cell > .event-operation-label {
+        display: none;
       }
 
       .event-actions {
@@ -1295,10 +1321,10 @@
           <div class="event-cell event-name-cell"><h3 class="event-card-title">${escapeHtml(eventData.name || "未命名活動")}</h3></div>
           <div class="event-cell event-interval-cell"><span class="event-mobile-label">活動間隔</span>${escapeHtml(interval)}</div>
           <div class="event-cell event-period-cell"><span class="event-mobile-label">活動期間</span>${periodHtml}</div>
-          <div class="event-cell"><span class="event-mobile-label">座標數量</span>${points.length} 個</div>
-          <div class="event-cell"><span class="event-mobile-label">備註</span>${escapeHtml(eventData.note || "—")}</div>
+          <div class="event-cell event-count-cell"><span class="event-mobile-label">座標數量</span>${points.length} 個</div>
+          <div class="event-cell event-note-cell"><span class="event-mobile-label">備註</span>${escapeHtml(eventData.note || "—")}</div>
           <div class="event-cell event-operation-cell">
-            <span class="event-mobile-label">狀態 / 操作</span>
+            <span class="event-mobile-label event-operation-label">狀態 / 操作</span>
             <span class="event-status ${status.key}">${escapeHtml(status.label)}</span>
             ${status.key === "ended" ? "" : `
             <div class="event-actions">
@@ -1334,6 +1360,39 @@
           current.push(eventData);
         }
       });
+
+      // 排序規則：
+      // 1. 活動座標：結束日期由近到遠；相同時開始日期由舊到新。
+      // 2. 常駐活動：開始日期由舊到新。
+      // 3. 已結束活動：結束日期由新到舊。
+      const getStartTime = eventData => {
+        const parsed = parseEventDateValue(eventData.startDate, { endOfDayWhenDateOnly: false });
+        return parsed ? parsed.date.getTime() : Number.POSITIVE_INFINITY;
+      };
+
+      const getEndTime = eventData => {
+        const parsed = parseEventDateValue(eventData.endDate, { endOfDayWhenDateOnly: true });
+        return parsed ? parsed.date.getTime() : Number.POSITIVE_INFINITY;
+      };
+
+      current.sort((a, b) => {
+        const statusA = getEventStatus(a).key;
+        const statusB = getEventStatus(b).key;
+
+        // 進行中優先，尚未開始排後面。
+        const priority = { active: 0, upcoming: 1 };
+        const priorityDiff = (priority[statusA] ?? 9) - (priority[statusB] ?? 9);
+        if (priorityDiff !== 0) return priorityDiff;
+
+        // 同一狀態內：結束日期由近到遠；相同時開始日期由舊到新。
+        const endDiff = getEndTime(a) - getEndTime(b);
+        if (endDiff !== 0) return endDiff;
+        return getStartTime(a) - getStartTime(b);
+      });
+
+      permanent.sort((a, b) => getStartTime(a) - getStartTime(b));
+
+      ended.sort((a, b) => getEndTime(b) - getEndTime(a));
 
       $("eventsGrid").innerHTML = renderEventTable(current);
       $("eventsGrid").style.display = current.length ? "block" : "none";
