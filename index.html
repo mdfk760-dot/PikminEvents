@@ -404,11 +404,25 @@
       }
 
       .event-cell:last-child { border-bottom: 0; }
-      .event-interval-cell { white-space: nowrap; }
+      .event-interval-cell {
+        white-space: nowrap;
+        padding-left: 10px;
+        padding-right: 8px;
+        gap: 5px;
+      }
+
+      .event-interval-cell .event-mobile-label,
+      .event-period-cell .event-mobile-label {
+        width: 72px;
+        flex: 0 0 72px;
+      }
       .event-period-cell {
         white-space: nowrap;
         overflow-x: auto;
         scrollbar-width: none;
+        padding-left: 10px;
+        padding-right: 8px;
+        gap: 5px;
       }
       .event-period-cell::-webkit-scrollbar { display: none; }
       .event-period-lines {
