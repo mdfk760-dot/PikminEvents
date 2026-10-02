@@ -21,7 +21,16 @@ const API_URL = "https://script.google.com/macros/s/AKfycby6rxbH_2xObY8yeCMD3bzs
     let toastTimer = null;
     let isLoading = false;
     let dataVersionTimer = null;
-    let adminPassword = sessionStorage.getItem("pikminActivityAdminPassword") || "";
+    const ADMIN_TOKEN_STORAGE_KEY = "pikminActivityAdminToken";
+    const ADMIN_TOKEN_EXPIRES_STORAGE_KEY = "pikminActivityAdminTokenExpiresAt";
+
+    // 新版只在 sessionStorage 保存短效 Token，不保存真正 Admin 密碼。
+    // 清除舊版曾保存的密碼。
+    sessionStorage.removeItem("pikminActivityAdminPassword");
+
+    let adminToken = sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) || "";
+    let adminTokenExpiresAt = sessionStorage.getItem(ADMIN_TOKEN_EXPIRES_STORAGE_KEY) || "";
+    let legacyAdminPassword = "";
     let isAdmin = false;
     let editingEventId = null;
 
@@ -565,6 +574,67 @@ const API_URL = "https://script.google.com/macros/s/AKfycby6rxbH_2xObY8yeCMD3bzs
       return { success: !!data.success && data.role === "admin", data };
     }
 
+    async function verifyAdminSession(token) {
+      if (!token) return { success: false };
+
+      const res = await fetchWithTimeout(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "verifySession", adminToken: token })
+      });
+
+      const data = await res.json();
+      return { success: !!data.success && data.role === "admin", data };
+    }
+
+    function saveAdminSession(token, expiresAt) {
+      adminToken = String(token || "");
+      adminTokenExpiresAt = String(expiresAt || "");
+
+      if (adminToken) {
+        sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, adminToken);
+      } else {
+        sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+      }
+
+      if (adminTokenExpiresAt) {
+        sessionStorage.setItem(ADMIN_TOKEN_EXPIRES_STORAGE_KEY, adminTokenExpiresAt);
+      } else {
+        sessionStorage.removeItem(ADMIN_TOKEN_EXPIRES_STORAGE_KEY);
+      }
+    }
+
+    function clearAdminSession() {
+      adminToken = "";
+      adminTokenExpiresAt = "";
+      legacyAdminPassword = "";
+      sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+      sessionStorage.removeItem(ADMIN_TOKEN_EXPIRES_STORAGE_KEY);
+      sessionStorage.removeItem("pikminActivityAdminPassword");
+    }
+
+    function isLocalAdminSessionExpired() {
+      if (!adminTokenExpiresAt) return false;
+      const expiresAt = new Date(adminTokenExpiresAt).getTime();
+      return Number.isFinite(expiresAt) && Date.now() >= expiresAt;
+    }
+
+    function handleExpiredAdminSession(message = "管理員登入已逾時，請重新登入。") {
+      clearAdminSession();
+      clearEventForm();
+      setAdminMode(false);
+      alert(message);
+    }
+
+    function getAdminAuthPayload() {
+      if (adminToken) return { adminToken };
+
+      // 舊後端過渡相容：密碼只留在目前頁面的記憶體，不寫入 sessionStorage。
+      return legacyAdminPassword
+        ? { adminPassword: legacyAdminPassword }
+        : {};
+    }
+
     function setAdminMode(enabled) {
       isAdmin = !!enabled;
       document.body.classList.toggle("admin-on", isAdmin);
@@ -669,7 +739,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycby6rxbH_2xObY8yeCMD3bzs
       const res = await fetchWithTimeout(API_URL, {
         method:"POST",
         headers:{ "Content-Type":"text/plain;charset=utf-8" },
-        body:JSON.stringify({ action:"saveEvent", adminPassword, event:eventData })
+        body:JSON.stringify({ action:"saveEvent", ...getAdminAuthPayload(), event:eventData })
       });
       return await res.json();
     }
@@ -682,10 +752,17 @@ const API_URL = "https://script.google.com/macros/s/AKfycby6rxbH_2xObY8yeCMD3bzs
       const res = await fetchWithTimeout(API_URL, {
         method:"POST",
         headers:{ "Content-Type":"text/plain;charset=utf-8" },
-        body:JSON.stringify({ action:"deleteEvent", adminPassword, id })
+        body:JSON.stringify({ action:"deleteEvent", ...getAdminAuthPayload(), id })
       });
       const data = await res.json();
-      if (!data.success) { alert(data.message || "刪除失敗"); return; }
+      if (!data.success) {
+        if (data.code === "ADMIN_SESSION_EXPIRED" || data.code === "ADMIN_REQUIRED") {
+          handleExpiredAdminSession(data.message || "管理員登入已逾時，請重新登入。");
+          return;
+        }
+        alert(data.message || "刪除失敗");
+        return;
+      }
       clearEventForm();
       await loadEvents({ showLoading:false });
       showToast("已刪除活動");
@@ -897,8 +974,19 @@ const API_URL = "https://script.google.com/macros/s/AKfycby6rxbH_2xObY8yeCMD3bzs
       try {
         const result = await verifyAdminPassword(password);
         if (!result.success) { alert(result.data?.message || "管理員密碼錯誤。"); return; }
-        adminPassword = password;
-        sessionStorage.setItem("pikminActivityAdminPassword", password);
+        if (result.data?.adminToken) {
+          saveAdminSession(
+            result.data.adminToken,
+            result.data.adminTokenExpiresAt || ""
+          );
+          legacyAdminPassword = "";
+        } else {
+          // 尚未部署 Token 後端時的短暫相容模式。
+          // 密碼只存在本頁記憶體，重新整理後即消失。
+          clearAdminSession();
+          legacyAdminPassword = password;
+        }
+
         $("passwordInput").value = "";
         $("loginDialog").close();
         setAdminMode(true);
@@ -909,12 +997,28 @@ const API_URL = "https://script.google.com/macros/s/AKfycby6rxbH_2xObY8yeCMD3bzs
         btn.disabled = false; btn.textContent = "登入";
       }
     });
-    $("logoutBtn").addEventListener("click", () => {
-      adminPassword = "";
-      sessionStorage.removeItem("pikminActivityAdminPassword");
+    $("logoutBtn").addEventListener("click", async () => {
+      const tokenToRevoke = adminToken;
+
+      clearAdminSession();
       clearEventForm();
       setAdminMode(false);
       showToast("已登出管理員");
+
+      if (tokenToRevoke) {
+        try {
+          await fetchWithTimeout(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "logoutSession",
+              adminToken: tokenToRevoke
+            })
+          }, 5000);
+        } catch (error) {
+          console.debug("伺服器 Token 登出失敗；本機登入狀態已清除", error);
+        }
+      }
     });
     $("adminPanelHeader").addEventListener("click", () => {
       const panel = $("adminPanel");
@@ -973,7 +1077,14 @@ const API_URL = "https://script.google.com/macros/s/AKfycby6rxbH_2xObY8yeCMD3bzs
       btn.disabled = true;
       try {
         const data = await saveEventToSheet(eventData);
-        if (!data.success) { alert(data.message || "儲存失敗"); return; }
+        if (!data.success) {
+          if (data.code === "ADMIN_SESSION_EXPIRED" || data.code === "ADMIN_REQUIRED") {
+            handleExpiredAdminSession(data.message || "管理員登入已逾時，請重新登入。");
+            return;
+          }
+          alert(data.message || "儲存失敗");
+          return;
+        }
         const wasEditing = !!editingEventId;
         clearEventForm();
         await loadEvents({ showLoading:false });
@@ -983,12 +1094,24 @@ const API_URL = "https://script.google.com/macros/s/AKfycby6rxbH_2xObY8yeCMD3bzs
       } finally { btn.disabled = false; }
     });
 
-    // 若本分頁已有管理員登入狀態，自動重新驗證。
-    if (adminPassword) {
-      verifyAdminPassword(adminPassword).then(result => {
-        if (result.success) setAdminMode(true);
-        else { adminPassword = ""; sessionStorage.removeItem("pikminActivityAdminPassword"); }
-      }).catch(() => {});
+    // 若本分頁已有管理員 Token，自動重新驗證。
+    if (adminToken) {
+      if (isLocalAdminSessionExpired()) {
+        clearAdminSession();
+      } else {
+        verifyAdminSession(adminToken)
+          .then(result => {
+            if (result.success) {
+              setAdminMode(true);
+            } else {
+              clearAdminSession();
+            }
+          })
+          .catch(() => {
+            // 網路暫時失敗時不直接刪除 Token，避免誤登出；
+            // 真正管理操作仍會由後端再次驗證。
+          });
+      }
     }
 
     $("reloadLatestBtn").addEventListener("click", () => {
