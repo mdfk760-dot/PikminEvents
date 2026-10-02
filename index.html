@@ -709,7 +709,7 @@
     let currentDataVersion = null;
     let toastTimer = null;
     let isLoading = false;
-    let versionTimer = null;
+    let dataVersionTimer = null;
     let adminPassword = sessionStorage.getItem("pikminActivityAdminPassword") || "";
     let isAdmin = false;
     let editingEventId = null;
@@ -718,12 +718,12 @@
 
 
     // 網站發布新版時，提醒仍開著舊頁面的使用者重新整理。
-    const SITE_UPDATE_CHECK_INTERVAL = 60 * 1000;
+    const SITE_VERSION_CHECK_INTERVAL = 60 * 1000;
     const SITE_VERSION_URL = "./version.txt";
     
     let publishedSiteVersion = null;
-    let siteUpdateTimer = null;
-    let siteUpdateDetected = false;
+    let siteVersionTimer = null;
+    let siteVersionUpdateDetected = false;
     
     async function getPublishedSiteVersion() {
       const url = new URL(SITE_VERSION_URL, window.location.href);
@@ -740,14 +740,14 @@
     }
     
     function showSiteUpdateBanner() {
-      if (siteUpdateDetected) return;
-      siteUpdateDetected = true;
+      if (siteVersionUpdateDetected) return;
+      siteVersionUpdateDetected = true;
       const banner = $("siteUpdateBanner");
       if (banner) banner.classList.add("active");
     }
 
-    async function checkForSiteUpdate({ initialize = false } = {}) {
-      if (siteUpdateDetected) return;
+    async function checkSiteVersion({ initialize = false } = {}) {
+      if (siteVersionUpdateDetected) return;
       if (!initialize && document.visibilityState !== "visible") return;
     
       try {
@@ -765,7 +765,7 @@
         // 再確認一次，避免 GitHub Pages/CDN 更新中的短暫狀態誤報。
         await new Promise(resolve => setTimeout(resolve, 3000));
     
-        if (document.visibilityState !== "visible" || siteUpdateDetected) return;
+        if (document.visibilityState !== "visible" || siteVersionUpdateDetected) return;
     
         const confirmVersion = await getPublishedSiteVersion();
     
@@ -780,17 +780,17 @@
       }
     }
 
-    function stopSiteUpdateTimer() {
-      if (siteUpdateTimer !== null) {
-        clearInterval(siteUpdateTimer);
-        siteUpdateTimer = null;
+    function stopSiteVersionTimer() {
+      if (siteVersionTimer !== null) {
+        clearInterval(siteVersionTimer);
+        siteVersionTimer = null;
       }
     }
 
-    function startSiteUpdateTimer() {
-      stopSiteUpdateTimer();
-      if (document.visibilityState !== "visible" || siteUpdateDetected) return;
-      siteUpdateTimer = setInterval(() => checkForSiteUpdate(), SITE_UPDATE_CHECK_INTERVAL);
+    function startSiteVersionTimer() {
+      stopSiteVersionTimer();
+      if (document.visibilityState !== "visible" || siteVersionUpdateDetected) return;
+      siteVersionTimer = setInterval(() => checkSiteVersion(), SITE_VERSION_CHECK_INTERVAL);
     }
 
     function showToast(message) {
@@ -872,7 +872,7 @@
       if (showLoading) $("loadingMessage").style.display = "block";
 
       let loadedEvents = null;
-      let loadedVersion = null;
+      let loadedDataVersion = null;
       let lastError = null;
 
       try {
@@ -886,7 +886,7 @@
           if (!Array.isArray(data.events)) throw new Error("action=list 未回傳 events");
 
           loadedEvents = data.events;
-          loadedVersion = data.dataVersion != null ? String(data.dataVersion) : null;
+          loadedDataVersion = data.dataVersion != null ? String(data.dataVersion) : null;
         } catch (error) {
           lastError = error;
           console.warn("共用公開資料讀取失敗，改用 listEvents 備援", error);
@@ -909,7 +909,7 @@
 
         // 若備援 API 沒有 dataVersion，就保留既有版本值；
         // 下一次 version check 仍可正常偵測資料更新。
-        if (loadedVersion !== null) currentDataVersion = loadedVersion;
+        if (loadedDataVersion !== null) currentDataVersion = loadedDataVersion;
 
         saveCache();
 
@@ -950,21 +950,21 @@
         if (!res.ok) return;
         const data = await res.json();
         if (!data.success || data.dataVersion == null) return;
-        const serverVersion = String(data.dataVersion);
+        const serverDataVersion = String(data.dataVersion);
         if (currentDataVersion === null) {
-          currentDataVersion = serverVersion;
+          currentDataVersion = serverDataVersion;
           return;
         }
-        if (serverVersion !== currentDataVersion) await loadEvents();
+        if (serverDataVersion !== currentDataVersion) await loadEvents();
       } catch (error) {
         console.debug("活動資料版本檢查失敗", error);
       }
     }
 
-    function startVersionTimer() {
-      if (versionTimer) clearInterval(versionTimer);
+    function startDataVersionTimer() {
+      if (dataVersionTimer) clearInterval(dataVersionTimer);
       if (document.visibilityState !== "visible") return;
-      versionTimer = setInterval(checkDataVersion, DATA_VERSION_CHECK_INTERVAL);
+      dataVersionTimer = setInterval(checkDataVersion, DATA_VERSION_CHECK_INTERVAL);
     }
 
     const EVENT_TZ_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -1519,10 +1519,10 @@
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") {
         checkDataVersion();
-        startVersionTimer();
-      } else if (versionTimer) {
-        clearInterval(versionTimer);
-        versionTimer = null;
+        startDataVersionTimer();
+      } else if (dataVersionTimer) {
+        clearInterval(dataVersionTimer);
+        dataVersionTimer = null;
       }
     });
 
@@ -1641,14 +1641,14 @@
 
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") {
-        checkForSiteUpdate();
-        startSiteUpdateTimer();
+        checkSiteVersion();
+        startSiteVersionTimer();
       } else {
-        stopSiteUpdateTimer();
+        stopSiteVersionTimer();
       }
     });
 
-    checkForSiteUpdate({ initialize: true }).finally(startSiteUpdateTimer);
+    checkSiteVersion({ initialize: true }).finally(startSiteVersionTimer);
 
     const restored = restoreCache();
     
@@ -1658,7 +1658,7 @@
       checkDataVersion();
     }
     
-    startVersionTimer();
+    startDataVersionTimer();
   </script>
 </body>
 </html>
