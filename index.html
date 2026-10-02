@@ -670,6 +670,9 @@
       <div id="permanentEventsGrid" class="events-grid" style="display:none;"></div>
       <div id="endedEventsTitle" class="events-ended-title" style="display:none;">已結束活動</div>
       <div id="endedEventsGrid" class="events-grid" style="display:none;"></div>
+      <div id="endedEventsMoreWrap" style="display:none; text-align:center; margin-top:12px;">
+        <button id="endedEventsMoreBtn" class="ghost" type="button">顯示更多</button>
+      </div>
     </section>
 
     <div id="eventsEmpty" class="empty">目前沒有活動座標。</div>
@@ -707,6 +710,8 @@
 
     let events = [];
     let currentDataVersion = null;
+    const ENDED_EVENTS_INITIAL_LIMIT = 10;
+    let showAllEndedEvents = false;
     let toastTimer = null;
     let isLoading = false;
     let dataVersionTimer = null;
@@ -1478,7 +1483,22 @@
 
       permanent.sort((a, b) => getStartTime(a) - getStartTime(b));
 
-      ended.sort((a, b) => getEndTime(b) - getEndTime(a));
+      ended.sort((a, b) => {
+        // 第一順位：結束日期，新 → 舊
+        const endDiff = getEndTime(b) - getEndTime(a);
+        if (endDiff !== 0) return endDiff;
+
+        // 第二順位：開始日期，新 → 舊
+        const startDiff = getStartTime(b) - getStartTime(a);
+        if (startDiff !== 0) return startDiff;
+
+        // 第三順位：活動名稱 A → Z
+        return String(a.name || "").localeCompare(
+          String(b.name || ""),
+          "zh-Hant",
+          { numeric: true, sensitivity: "base" }
+        );
+      });
 
       $("eventsGrid").innerHTML = renderEventTable(current);
       $("eventsGrid").style.display = current.length ? "block" : "none";
@@ -1488,9 +1508,29 @@
       $("permanentEventsTitle").style.display = permanent.length ? "flex" : "none";
       $("permanentEventsCount").textContent = permanent.length ? `共 ${permanent.length} 個活動` : "";
 
-      $("endedEventsGrid").innerHTML = renderEventTable(ended);
+      const visibleEndedEvents = showAllEndedEvents
+        ? ended
+        : ended.slice(0, ENDED_EVENTS_INITIAL_LIMIT);
+
+      $("endedEventsGrid").innerHTML = renderEventTable(visibleEndedEvents);
       $("endedEventsGrid").style.display = ended.length ? "block" : "none";
       $("endedEventsTitle").style.display = ended.length ? "block" : "none";
+
+      const endedMoreWrap = $("endedEventsMoreWrap");
+      const endedMoreBtn = $("endedEventsMoreBtn");
+
+      if (ended.length > ENDED_EVENTS_INITIAL_LIMIT) {
+        endedMoreWrap.style.display = "block";
+
+        if (showAllEndedEvents) {
+          endedMoreBtn.textContent = "收合";
+        } else {
+          const remainingCount = ended.length - ENDED_EVENTS_INITIAL_LIMIT;
+          endedMoreBtn.textContent = `顯示更多（剩餘 ${remainingCount} 筆）`;
+        }
+      } else {
+        endedMoreWrap.style.display = "none";
+      }
       $("eventsCount").textContent = current.length ? `共 ${current.length} 個活動` : "";
 
       const counts = events.reduce((result, eventData) => {
@@ -1527,6 +1567,18 @@
     });
 
 
+
+    $("endedEventsMoreBtn").addEventListener("click", () => {
+      showAllEndedEvents = !showAllEndedEvents;
+      renderEvents();
+
+      if (!showAllEndedEvents) {
+        $("endedEventsTitle").scrollIntoView({
+          behavior: "smooth",
+          block: "start"
+        });
+      }
+    });
 
     $("adminLoginBtn").addEventListener("click", () => $("loginDialog").showModal());
     $("closeLoginBtn").addEventListener("click", () => $("loginDialog").close());
