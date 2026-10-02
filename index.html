@@ -719,32 +719,26 @@
 
     // 網站發布新版時，提醒仍開著舊頁面的使用者重新整理。
     const SITE_UPDATE_CHECK_INTERVAL = 60 * 1000;
-    let publishedPageFingerprint = null;
+    const SITE_VERSION_URL = "./version.txt";
+    
+    let publishedSiteVersion = null;
     let siteUpdateTimer = null;
     let siteUpdateDetected = false;
-
-    function hashText(text) {
-      let hash = 2166136261;
-      for (let i = 0; i < text.length; i++) {
-        hash ^= text.charCodeAt(i);
-        hash = Math.imul(hash, 16777619);
-      }
-      return (hash >>> 0).toString(16);
-    }
-
-    async function getPublishedPageFingerprint() {
-      const url = new URL(window.location.origin + window.location.pathname);
+    
+    async function getPublishedSiteVersion() {
+      const url = new URL(SITE_VERSION_URL, window.location.href);
       url.searchParams.set("_updateCheck", Date.now());
-
+    
       const response = await fetch(url.toString(), {
         method: "GET",
         cache: "no-store"
       });
-
+    
       if (!response.ok) throw new Error(`版本檢查 HTTP ${response.status}`);
-      return hashText(await response.text());
+    
+      return (await response.text()).trim();
     }
-
+    
     function showSiteUpdateBanner() {
       if (siteUpdateDetected) return;
       siteUpdateDetected = true;
@@ -755,23 +749,30 @@
     async function checkForSiteUpdate({ initialize = false } = {}) {
       if (siteUpdateDetected) return;
       if (!initialize && document.visibilityState !== "visible") return;
-
+    
       try {
-        const fingerprint = await getPublishedPageFingerprint();
-
-        if (!publishedPageFingerprint || initialize) {
-          publishedPageFingerprint = fingerprint;
+        const siteVersion = await getPublishedSiteVersion();
+    
+        if (!siteVersion) return;
+    
+        if (!publishedSiteVersion || initialize) {
+          publishedSiteVersion = siteVersion;
           return;
         }
-
-        if (fingerprint === publishedPageFingerprint) return;
-
-        // 第一次發現不同後再確認一次，避免 GitHub Pages/CDN 更新中的短暫狀態誤報。
+    
+        if (siteVersion === publishedSiteVersion) return;
+    
+        // 再確認一次，避免 GitHub Pages/CDN 更新中的短暫狀態誤報。
         await new Promise(resolve => setTimeout(resolve, 3000));
+    
         if (document.visibilityState !== "visible" || siteUpdateDetected) return;
-
-        const confirmFingerprint = await getPublishedPageFingerprint();
-        if (confirmFingerprint === fingerprint && confirmFingerprint !== publishedPageFingerprint) {
+    
+        const confirmVersion = await getPublishedSiteVersion();
+    
+        if (
+          confirmVersion === siteVersion &&
+          confirmVersion !== publishedSiteVersion
+        ) {
           showSiteUpdateBanner();
         }
       } catch (error) {
