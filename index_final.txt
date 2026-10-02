@@ -1,0 +1,1664 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>妖妖活動公告</title>
+  <meta name="description" content="妖妖活動公告｜查看活動座標，一鍵複製座標或下載 GPX。" />
+  <style>
+    :root {
+      --bg: #fff8f2;
+      --card: #ffffff;
+      --text: #3d332d;
+      --muted: #8a7b70;
+      --primary: #ef7d9b;
+      --primary-dark: #d95f83;
+      --green: #75ad79;
+      --green-dark: #5d9863;
+      --border: #f0ded3;
+      --shadow: 0 12px 30px rgba(112, 79, 61, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(255, 214, 226, 0.72), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(204, 239, 203, 0.7), transparent 32%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 28px 16px 18px;
+      text-align: center;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: clamp(26px, 5vw, 42px);
+      letter-spacing: 0.04em;
+    }
+
+    header p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .wrap {
+      width: min(1160px, calc(100% - 28px));
+      margin: 0 auto 44px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .topbar,
+    .empty {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      border-radius: 22px;
+    }
+
+    .topbar {
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .summary-title {
+      font-weight: 900;
+      color: var(--green-dark);
+      white-space: nowrap;
+    }
+
+    .summary-text {
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1.5;
+    }
+
+    .summary {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 8px 10px;
+      background: var(--primary);
+      color: #fff;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      transition: transform 0.12s ease, background 0.12s ease, opacity 0.12s ease;
+      white-space: nowrap;
+    }
+
+    button:hover {
+      background: var(--primary-dark);
+      transform: translateY(-1px);
+    }
+
+    button.download { background: #4f8edc; }
+    button.download:hover { background: #407fc9; }
+    button.secondary { background: #a99586; }
+    button.secondary:hover { background: #8c7a6d; }
+    button.green { background: var(--green); }
+    button.green:hover { background: var(--green-dark); }
+    button.danger { background: #d9534f; }
+    button.danger:hover { background: #bd403d; }
+    button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    button.ghost:hover { background: #fff8f2; color: var(--text); }
+
+    .result-section-title {
+      margin: 4px 4px 10px;
+      font-size: 18px;
+      font-weight: 900;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .result-section-title .sub {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    /* 常駐活動與上方一般活動表格保留較明顯的區塊間距 */
+    #permanentEventsTitle {
+      margin-top: 30px;
+    }
+
+    .events-grid {
+      display: block;
+      width: 100%;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: var(--shadow);
+    }
+
+    .event-table-header,
+    .event-card {
+      display: grid;
+      grid-template-columns:
+        minmax(118px, 0.88fr)
+        minmax(120px, 0.76fr)
+        minmax(145px, 0.78fr)
+        minmax(68px, 0.42fr)
+        minmax(96px, 0.68fr)
+        minmax(370px, 2.25fr);
+      align-items: stretch;
+    }
+
+    .event-table-header {
+      background: #eef8ee;
+      color: var(--green-dark);
+      font-weight: 900;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .event-card {
+      border-bottom: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.94);
+    }
+
+    .event-card:last-child { border-bottom: 0; }
+    .event-card.ended { opacity: 0.72; }
+
+    .event-cell {
+      min-width: 0;
+      padding: 12px 11px;
+      border-right: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      line-height: 1.45;
+      font-size: 14px;
+      word-break: break-word;
+    }
+
+    .event-cell:last-child { border-right: 0; }
+    .event-interval-cell { white-space: nowrap; }
+
+    .event-period-cell {
+      white-space: normal;
+    }
+
+    .event-period-lines {
+      display: grid;
+      gap: 2px;
+      line-height: 1.35;
+      white-space: nowrap;
+    }
+
+    .event-period-end {
+      color: var(--muted);
+    }
+
+    .event-card-title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 900;
+      line-height: 1.35;
+    }
+
+    .event-operation-cell {
+      gap: 7px;
+      flex-wrap: nowrap;
+      white-space: nowrap;
+    }
+
+    .event-status {
+      flex: 0 0 auto;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 900;
+      background: #edf7ee;
+      color: var(--green-dark);
+      white-space: nowrap;
+    }
+
+    .event-status.upcoming { background: #fff5df; color: #9a6a18; }
+    .event-status.ended { background: #f4eeee; color: var(--muted); }
+    .event-status.permanent { background: #eef2ff; color: #5e6ea8; }
+
+    .event-actions {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 6px;
+    }
+
+    .event-actions button {
+      width: auto;
+      padding: 7px 8px;
+      font-size: 11px;
+      border-radius: 10px;
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+
+    .event-mobile-label { display: none; }
+
+    .events-ended-title {
+      margin: 30px 4px 10px;
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 36px 16px;
+      color: var(--muted);
+      display: none;
+    }
+
+    .page-footer-note {
+      width: min(1160px, calc(100% - 28px));
+      margin: -24px auto 34px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 22px;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(61, 51, 45, 0.94);
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 999px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 50;
+      font-size: 14px;
+    }
+
+    .toast.active {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 1024px) {
+      header { padding: 18px 12px 10px; }
+      header h1 { font-size: 24px; }
+      header p { font-size: 13px; }
+
+      .wrap {
+        width: min(100% - 20px, 760px);
+        gap: 14px;
+        margin-bottom: 28px;
+      }
+
+      .topbar { align-items: stretch; }
+      .summary { width: 100%; }
+      .summary-text { white-space: normal; }
+
+      .result-section-title {
+        margin: 8px 4px 8px;
+        font-size: 20px;
+        line-height: 1.35;
+        display: block;
+      }
+
+      .result-section-title .sub {
+        display: block;
+        margin-top: 3px;
+      }
+
+      #permanentEventsTitle {
+        margin-top: 24px;
+      }
+
+      .events-ended-title {
+        margin-top: 24px;
+      }
+
+      .events-grid {
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        background: transparent;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        row-gap: 16px;
+        column-gap: 0;
+        overflow: visible;
+      }
+
+      .event-table-header { display: none; }
+
+      .event-card {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: minmax(108px, 0.7fr) minmax(0, 1.3fr) !important;
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.94);
+        box-shadow: var(--shadow);
+        margin: 0;
+      }
+
+      .event-cell {
+        grid-column: 1 / -1;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+        padding: 11px 14px;
+        min-height: 44px;
+      }
+
+      .event-count-cell,
+      .event-note-cell {
+        grid-column: auto;
+      }
+
+      .event-count-cell {
+        border-right: 1px solid var(--border);
+        padding-left: 10px;
+        padding-right: 8px;
+        gap: 5px;
+      }
+
+      .event-count-cell .event-mobile-label {
+        width: 72px;
+        flex: 0 0 72px;
+      }
+
+      .event-note-cell {
+        min-width: 0;
+        padding-left: 10px;
+        padding-right: 10px;
+        gap: 6px;
+      }
+
+      .event-note-cell .event-mobile-label {
+        width: auto;
+        flex: 0 0 auto;
+      }
+
+      .event-note-cell {
+        overflow-wrap: anywhere;
+      }
+
+      .event-cell:last-child { border-bottom: 0; }
+      .event-interval-cell {
+        white-space: nowrap;
+        padding-left: 10px;
+        padding-right: 8px;
+        gap: 5px;
+      }
+
+      .event-interval-cell .event-mobile-label,
+      .event-period-cell .event-mobile-label {
+        width: 72px;
+        flex: 0 0 72px;
+      }
+      .event-period-cell {
+        white-space: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        padding-left: 10px;
+        padding-right: 8px;
+        gap: 5px;
+      }
+      .event-period-cell::-webkit-scrollbar { display: none; }
+      .event-period-lines {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+      }
+      .event-period-end { white-space: nowrap; }
+
+      .event-mobile-label {
+        display: inline-block;
+        width: 72px;
+        flex: 0 0 72px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .event-name-cell .event-mobile-label { display: none; }
+      .event-card-title { font-size: 18px; }
+
+      .event-operation-cell {
+        flex-wrap: wrap;
+        white-space: normal;
+      }
+
+      .event-operation-cell > .event-mobile-label {
+        width: 100%;
+        flex: 0 0 100%;
+      }
+
+      .event-operation-cell > .event-operation-label {
+        display: none;
+      }
+
+      .event-actions {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .event-actions button {
+        flex: 1 1 0;
+        min-width: 0;
+      }
+    }
+  
+
+    /* 網站 HTML 更新提示：沿用開花公告樣式 */
+    .site-update-banner {
+      position: fixed;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-18px);
+      z-index: 1000;
+      width: min(560px, calc(100% - 28px));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.97);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+    }
+
+    .site-update-banner.active {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .site-update-banner-text {
+      min-width: 0;
+      line-height: 1.45;
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .site-update-banner button {
+      flex: 0 0 auto;
+      width: auto;
+      white-space: nowrap;
+      padding: 9px 12px;
+    }
+
+    @media (max-width: 1024px) {
+      .site-update-banner {
+        top: 10px;
+        align-items: stretch;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .site-update-banner button {
+        width: 100%;
+      }
+    }
+
+
+    /* 活動管理員介面 */
+    .admin-login-btn { flex: 0 0 auto; }
+    .admin-panel {
+      display: none;
+      background: rgba(255,255,255,.92);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .admin-panel.active { display: block; }
+    .admin-panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 14px 18px;
+      background: rgba(255,240,245,.72); border-bottom: 1px solid var(--border);
+      cursor: pointer; user-select: none;
+    }
+    .admin-panel-title { margin:0; font-size:16px; font-weight:900; color:var(--primary-dark); }
+    .admin-panel-body { padding:18px; }
+    .admin-panel.collapsed .admin-panel-body { display:none; }
+    .admin-collapse-btn { background:transparent!important; color:var(--primary-dark)!important; padding:0!important; width:auto!important; }
+    .admin-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .admin-field.full { grid-column:1/-1; }
+    .admin-field label { display:block; font-size:13px; color:var(--muted); margin:0 0 6px 4px; font-weight:700; }
+    .admin-field input, .admin-field select, .admin-field textarea {
+      width:100%; border:1px solid var(--border); background:#fff; color:var(--text);
+      border-radius:14px; padding:10px 12px; outline:none; font:inherit;
+    }
+    .admin-field textarea { min-height:160px; resize:vertical; line-height:1.55; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; }
+    .date-time-row { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:8px; }
+    .date-time-row input { min-width:0; }
+    .field-subhint { margin:5px 4px 0; color:var(--muted); font-size:12px; line-height:1.4; }
+
+    .admin-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+    .admin-hint { margin-top:10px; color:var(--muted); font-size:13px; line-height:1.6; }
+    .admin-only { display:none; }
+    body.admin-on .admin-only { display:inline-flex; }
+    dialog { position:relative; border:0; border-radius:20px; padding:24px 20px 20px; width:min(420px,calc(100% - 36px)); box-shadow:var(--shadow); }
+    dialog::backdrop { background:rgba(40,28,20,.35); }
+    #closeLoginBtn { position:absolute; top:12px; right:12px; width:36px!important; height:36px; padding:0; border-radius:50%; background:transparent; color:var(--muted); border:1px solid var(--border); font-size:24px; }
+    .login-row { display:flex; gap:10px; margin-top:14px; }
+    .login-row input { flex:1; border:1px solid var(--border); border-radius:14px; padding:10px 12px; font:inherit; }
+    @media (max-width:1024px) {
+      .admin-grid { grid-template-columns:1fr; }
+      .admin-field.full { grid-column:1; }
+      .date-time-row { grid-template-columns:minmax(0,2fr) minmax(0,1fr); }
+      .admin-actions button { width:100%; }
+      .login-row { flex-direction:column; }
+      .login-row button { width:100%; }
+    }
+
+  </style>
+</head>
+<body>
+
+  <div id="siteUpdateBanner" class="site-update-banner" role="status" aria-live="polite">
+    <div class="site-update-banner-text">🌱 網站有新版本，請重新整理取得最新版。</div>
+    <button id="reloadLatestBtn" type="button">重新整理</button>
+  </div>
+
+  <header>
+    <h1>🎪 妖妖活動公告</h1>
+    <p>查看活動座標，一鍵複製座標或下載 GPX。</p>
+  </header>
+
+  <main class="wrap">
+    <section class="topbar">
+      <div class="summary">
+        <span class="summary-title">活動摘要</span>
+        <span id="eventSummaryText" class="summary-text">讀取中...</span>
+      </div>
+      <button id="adminLoginBtn" class="secondary admin-login-btn">管理員登入</button>
+      <button id="logoutBtn" class="ghost admin-login-btn" style="display:none;">管理員登出</button>
+    </section>
+
+    <section id="adminPanel" class="admin-panel">
+      <div id="adminPanelHeader" class="admin-panel-header" role="button" tabindex="0" aria-expanded="true">
+        <h2 class="admin-panel-title">活動座標管理</h2>
+        <button id="adminCollapseBtn" class="admin-collapse-btn" type="button">▲</button>
+      </div>
+      <div class="admin-panel-body">
+        <div class="admin-grid">
+          <div class="admin-field">
+            <label for="eventNameInput">活動名稱</label>
+            <input id="eventNameInput" type="text" placeholder="例如：京都活動盆栽">
+          </div>
+          <div class="admin-field">
+            <label for="eventIntervalInput">活動盆間隔</label>
+            <select id="eventIntervalInput">
+              <option value="1day">每1天一次</option>
+              <option value="7days">每7天一次</option>
+              <option value="30days">每30天一次</option>
+              <option value="monthly1st">每月1號刷新</option>
+              <option value="once">活動期間限一次</option>
+            </select>
+          </div>
+          <div class="admin-field">
+            <label for="eventStartDateInput">活動開始日期</label>
+            <div class="date-time-row">
+              <input id="eventStartDateInput" type="date">
+              <input id="eventStartTimeInput" type="text" inputmode="numeric" maxlength="5" placeholder="HH:mm" autocomplete="off" aria-label="活動開始時間（24小時制，選填）">
+            </div>
+            <div class="field-subhint">時間選填；未填時間時只記錄日期。</div>
+          </div>
+          <div class="admin-field">
+            <label for="eventEndDateInput">活動結束日期（常駐請留空）</label>
+            <div class="date-time-row">
+              <input id="eventEndDateInput" type="date">
+              <input id="eventEndTimeInput" type="text" inputmode="numeric" maxlength="5" placeholder="HH:mm" autocomplete="off" aria-label="活動結束時間（24小時制，選填）">
+            </div>
+            <div class="field-subhint">時間選填；未填時間時只記錄日期。</div>
+          </div>
+          <div class="admin-field full">
+            <label for="eventCoordsInput">活動座標（每行：名稱;緯度,經度）</label>
+            <textarea id="eventCoordsInput" placeholder="台北車站;25.047760,121.517058
+西門町;25.042236,121.507987"></textarea>
+          </div>
+          <div class="admin-field full">
+            <label for="eventNoteInput">備註</label>
+            <input id="eventNoteInput" type="text" placeholder="例如：每日 00:00 重置">
+          </div>
+        </div>
+        <div class="admin-actions">
+          <button id="saveEventBtn" class="green">新增活動</button>
+          <button id="clearEventFormBtn" class="ghost">清空輸入</button>
+        </div>
+        <div class="admin-hint">登入後可新增、編輯與刪除活動。日期必填、時間選填；時間採 24 小時制。常駐活動請將結束日期留空。</div>
+      </div>
+    </section>
+
+    <div id="loadingMessage" class="empty" style="display:block;">🎪 正在載入活動資料...</div>
+
+    <section id="eventsSection" style="display:none;">
+      <div class="result-section-title">活動座標 <span id="eventsCount" class="sub"></span></div>
+      <div id="eventsGrid" class="events-grid"></div>
+      <div id="permanentEventsTitle" class="result-section-title" style="display:none;">常駐活動 <span id="permanentEventsCount" class="sub"></span></div>
+      <div id="permanentEventsGrid" class="events-grid" style="display:none;"></div>
+      <div id="endedEventsTitle" class="events-ended-title" style="display:none;">已結束活動</div>
+      <div id="endedEventsGrid" class="events-grid" style="display:none;"></div>
+    </section>
+
+    <div id="eventsEmpty" class="empty">目前沒有活動座標。</div>
+  </main>
+
+  <footer class="page-footer-note">活動資料以網站公告內容為準。</footer>
+
+  <dialog id="loginDialog">
+    <button id="closeLoginBtn" type="button" aria-label="關閉">&times;</button>
+    <h3 style="margin:0 44px 0 0;">管理員登入</h3>
+    <p style="color:var(--muted);line-height:1.6;">請輸入活動管理員密碼。</p>
+    <div class="login-row">
+      <input id="passwordInput" type="password" placeholder="請輸入密碼">
+      <button id="confirmLoginBtn">登入</button>
+    </div>
+  </dialog>
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycby6rxbH_2xObY8yeCMD3bzspAqwMEIrHhWRfA5OrGHdLx55DPeUKTENqd7DkoAEjn7p/exec";
+
+    const EVENT_INTERVAL_LABELS = {
+      "1day": "每1天一次",
+      "7days": "每7天一次",
+      "30days": "每30天一次",
+      "monthly1st": "每月1號刷新",
+      "1month": "每月1號刷新",
+      "once": "活動期間限一次"
+    };
+
+    const PUBLIC_CACHE_KEY = "pikminActivityPublicCacheV1";
+    const CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+    const DATA_VERSION_CHECK_INTERVAL = 30 * 1000;
+    const FETCH_TIMEOUT = 15000;
+
+    let events = [];
+    let currentDataVersion = null;
+    let toastTimer = null;
+    let isLoading = false;
+    let dataVersionTimer = null;
+    let adminPassword = sessionStorage.getItem("pikminActivityAdminPassword") || "";
+    let isAdmin = false;
+    let editingEventId = null;
+
+    const $ = id => document.getElementById(id);
+
+
+    // 網站發布新版時，提醒仍開著舊頁面的使用者重新整理。
+    const SITE_VERSION_CHECK_INTERVAL = 60 * 1000;
+    const SITE_VERSION_URL = "./version.txt";
+    
+    let publishedSiteVersion = null;
+    let siteVersionTimer = null;
+    let siteVersionUpdateDetected = false;
+    
+    async function getPublishedSiteVersion() {
+      const url = new URL(SITE_VERSION_URL, window.location.href);
+      url.searchParams.set("_updateCheck", Date.now());
+    
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        cache: "no-store"
+      });
+    
+      if (!response.ok) throw new Error(`版本檢查 HTTP ${response.status}`);
+    
+      return (await response.text()).trim();
+    }
+    
+    function showSiteUpdateBanner() {
+      if (siteVersionUpdateDetected) return;
+      siteVersionUpdateDetected = true;
+      const banner = $("siteUpdateBanner");
+      if (banner) banner.classList.add("active");
+    }
+
+    async function checkSiteVersion({ initialize = false } = {}) {
+      if (siteVersionUpdateDetected) return;
+      if (!initialize && document.visibilityState !== "visible") return;
+    
+      try {
+        const siteVersion = await getPublishedSiteVersion();
+    
+        if (!siteVersion) return;
+    
+        if (!publishedSiteVersion || initialize) {
+          publishedSiteVersion = siteVersion;
+          return;
+        }
+    
+        if (siteVersion === publishedSiteVersion) return;
+    
+        // 再確認一次，避免 GitHub Pages/CDN 更新中的短暫狀態誤報。
+        await new Promise(resolve => setTimeout(resolve, 3000));
+    
+        if (document.visibilityState !== "visible" || siteVersionUpdateDetected) return;
+    
+        const confirmVersion = await getPublishedSiteVersion();
+    
+        if (
+          confirmVersion === siteVersion &&
+          confirmVersion !== publishedSiteVersion
+        ) {
+          showSiteUpdateBanner();
+        }
+      } catch (error) {
+        console.debug("網站版本檢查失敗", error);
+      }
+    }
+
+    function stopSiteVersionTimer() {
+      if (siteVersionTimer !== null) {
+        clearInterval(siteVersionTimer);
+        siteVersionTimer = null;
+      }
+    }
+
+    function startSiteVersionTimer() {
+      stopSiteVersionTimer();
+      if (document.visibilityState !== "visible" || siteVersionUpdateDetected) return;
+      siteVersionTimer = setInterval(() => checkSiteVersion(), SITE_VERSION_CHECK_INTERVAL);
+    }
+
+    function showToast(message) {
+      const toast = $("toast");
+      toast.textContent = message;
+      toast.classList.add("active");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("active"), 1600);
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function escapeXml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&apos;");
+    }
+
+    function sanitizeFileName(value) {
+      return String(value || "活動座標")
+        .replace(/[\\/:*?"<>|]/g, "_")
+        .replace(/\s+/g, " ")
+        .trim() || "活動座標";
+    }
+
+    function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+      return fetch(url, {
+        ...options,
+        cache: "no-store",
+        signal: controller.signal
+      }).finally(() => clearTimeout(timer));
+    }
+
+    function saveCache() {
+      try {
+        localStorage.setItem(PUBLIC_CACHE_KEY, JSON.stringify({
+          savedAt: Date.now(),
+          dataVersion: currentDataVersion,
+          events
+        }));
+      } catch (error) {
+        console.debug("保存活動快取失敗", error);
+      }
+    }
+
+    function restoreCache() {
+      try {
+        const raw = localStorage.getItem(PUBLIC_CACHE_KEY);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        if (!data || !Array.isArray(data.events) || !Number.isFinite(Number(data.savedAt))) return false;
+        if (Date.now() - Number(data.savedAt) > CACHE_MAX_AGE) return false;
+        events = data.events;
+        currentDataVersion = data.dataVersion != null ? String(data.dataVersion) : null;
+        renderEvents();
+        return true;
+      } catch (error) {
+        console.debug("讀取活動快取失敗", error);
+        return false;
+      }
+    }
+
+    async function loadEvents({ showLoading = false } = {}) {
+      if (isLoading) return false;
+      isLoading = true;
+      if (showLoading) $("loadingMessage").style.display = "block";
+
+      let loadedEvents = null;
+      let loadedDataVersion = null;
+      let lastError = null;
+
+      try {
+        // 主要來源：與開花公告共用的公開資料 API。
+        try {
+          const res = await fetchWithTimeout(`${API_URL}?action=list&ts=${Date.now()}`);
+          if (!res.ok) throw new Error(`action=list HTTP ${res.status}`);
+
+          const data = await res.json();
+          if (!data.success) throw new Error(data.message || "action=list 讀取失敗");
+          if (!Array.isArray(data.events)) throw new Error("action=list 未回傳 events");
+
+          loadedEvents = data.events;
+          loadedDataVersion = data.dataVersion != null ? String(data.dataVersion) : null;
+        } catch (error) {
+          lastError = error;
+          console.warn("共用公開資料讀取失敗，改用 listEvents 備援", error);
+        }
+
+        // 備援來源：只讀活動資料。
+        if (!Array.isArray(loadedEvents)) {
+          const fallbackRes = await fetchWithTimeout(`${API_URL}?action=listEvents&ts=${Date.now()}`);
+          if (!fallbackRes.ok) throw new Error(`action=listEvents HTTP ${fallbackRes.status}`);
+
+          const fallbackData = await fallbackRes.json();
+          if (!fallbackData.success || !Array.isArray(fallbackData.events)) {
+            throw new Error(fallbackData.message || "action=listEvents 讀取失敗");
+          }
+
+          loadedEvents = fallbackData.events;
+        }
+
+        events = loadedEvents;
+
+        // 若備援 API 沒有 dataVersion，就保留既有版本值；
+        // 下一次 version check 仍可正常偵測資料更新。
+        if (loadedDataVersion !== null) currentDataVersion = loadedDataVersion;
+
+        saveCache();
+
+        // 資料已成功取得後，再單獨處理畫面渲染。
+        try {
+          renderEvents();
+        } catch (renderError) {
+          console.error("活動資料渲染失敗", renderError);
+          $("eventsEmpty").textContent = "活動資料已讀取，但畫面顯示發生錯誤。";
+          $("eventsEmpty").style.display = "block";
+          return false;
+        }
+
+        return true;
+      } catch (error) {
+        lastError = error || lastError;
+        console.error("活動資料讀取失敗", lastError);
+
+        if (!events.length && !restoreCache()) {
+          $("eventsEmpty").textContent = lastError && lastError.name === "AbortError"
+            ? "活動資料載入逾時，請稍後重新整理。"
+            : "暫時無法讀取活動資料。";
+          $("eventsEmpty").style.display = "block";
+        } else {
+          showToast("暫時無法更新，目前顯示上次成功資料");
+        }
+        return false;
+      } finally {
+        isLoading = false;
+        $("loadingMessage").style.display = "none";
+      }
+    }
+
+    async function checkDataVersion() {
+      if (document.visibilityState !== "visible" || isLoading) return;
+      try {
+        const res = await fetchWithTimeout(`${API_URL}?action=version&ts=${Date.now()}`, {}, 8000);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.success || data.dataVersion == null) return;
+        const serverDataVersion = String(data.dataVersion);
+        if (currentDataVersion === null) {
+          currentDataVersion = serverDataVersion;
+          return;
+        }
+        if (serverDataVersion !== currentDataVersion) await loadEvents();
+      } catch (error) {
+        console.debug("活動資料版本檢查失敗", error);
+      }
+    }
+
+    function startDataVersionTimer() {
+      if (dataVersionTimer) clearInterval(dataVersionTimer);
+      if (document.visibilityState !== "visible") return;
+      dataVersionTimer = setInterval(checkDataVersion, DATA_VERSION_CHECK_INTERVAL);
+    }
+
+    const EVENT_TZ_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+    function getTaipeiParts(date) {
+      if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+
+      // 活動資料固定依台灣時間 UTC+8 顯示。
+      // 先把 UTC 時間平移 +8 小時，再使用 UTC 欄位讀值，
+      // 可完全避免瀏覽器所在地時區造成 8/31 顯示成 8/30。
+      const shifted = new Date(date.getTime() + EVENT_TZ_OFFSET_MS);
+      return {
+        year: shifted.getUTCFullYear(),
+        month: shifted.getUTCMonth() + 1,
+        day: shifted.getUTCDate(),
+        hour: shifted.getUTCHours(),
+        minute: shifted.getUTCMinutes()
+      };
+    }
+
+    function taipeiWallTimeToDate(year, month, day, hour = 0, minute = 0, second = 0) {
+      // 把「台灣牆上時間」轉成真正 UTC Date。
+      return new Date(Date.UTC(year, month - 1, day, hour - 8, minute, second, 0));
+    }
+
+    function parseEventDateValue(value, { endOfDayWhenDateOnly = false } = {}) {
+      if (!value) return null;
+
+      if (Object.prototype.toString.call(value) === "[object Date]") {
+        const date = new Date(value.getTime());
+        const parts = getTaipeiParts(date);
+        if (!parts) return null;
+        const hasTime = parts.hour !== 0 || parts.minute !== 0;
+        if (endOfDayWhenDateOnly && !hasTime) {
+          return {
+            date: taipeiWallTimeToDate(parts.year, parts.month, parts.day, 23, 59, 59),
+            hasTime: false
+          };
+        }
+        return { date, hasTime };
+      }
+
+      const text = String(value).trim();
+      if (!text) return null;
+
+      // Google Sheet / Apps Script 常回傳 ISO UTC，例如：
+      // 2026-08-30T16:00:00.000Z = 台灣 2026/08/31 00:00。
+      if (/^\d{4}-\d{2}-\d{2}T/.test(text)) {
+        const date = new Date(text);
+        if (Number.isNaN(date.getTime())) return null;
+        const parts = getTaipeiParts(date);
+        if (!parts) return null;
+        const hasTime = parts.hour !== 0 || parts.minute !== 0;
+        if (endOfDayWhenDateOnly && !hasTime) {
+          return {
+            date: taipeiWallTimeToDate(parts.year, parts.month, parts.day, 23, 59, 59),
+            hasTime: false
+          };
+        }
+        return { date, hasTime };
+      }
+
+      // 也支援後端若直接回傳文字：
+      // 2026/08/31
+      // 2026/09/30 18:00
+      const localMatch = text.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?$/);
+      if (localMatch) {
+        const year = Number(localMatch[1]);
+        const month = Number(localMatch[2]);
+        const day = Number(localMatch[3]);
+        const hasTime = localMatch[4] != null;
+        const hour = hasTime ? Number(localMatch[4]) : (endOfDayWhenDateOnly ? 23 : 0);
+        const minute = hasTime ? Number(localMatch[5]) : (endOfDayWhenDateOnly ? 59 : 0);
+        const second = !hasTime && endOfDayWhenDateOnly ? 59 : 0;
+        return {
+          date: taipeiWallTimeToDate(year, month, day, hour, minute, second),
+          hasTime
+        };
+      }
+
+      const date = new Date(text);
+      if (Number.isNaN(date.getTime())) return null;
+      const parts = getTaipeiParts(date);
+      if (!parts) return null;
+      const hasTime = parts.hour !== 0 || parts.minute !== 0;
+      if (endOfDayWhenDateOnly && !hasTime) {
+        return {
+          date: taipeiWallTimeToDate(parts.year, parts.month, parts.day, 23, 59, 59),
+          hasTime: false
+        };
+      }
+      return { date, hasTime };
+    }
+
+    function formatEventDate(value) {
+      const parsed = parseEventDateValue(value);
+      if (!parsed) return "";
+      const parts = getTaipeiParts(parsed.date);
+      if (!parts) return "";
+      const y = String(parts.year).padStart(4, "0");
+      const m = String(parts.month).padStart(2, "0");
+      const d = String(parts.day).padStart(2, "0");
+      const hh = String(parts.hour).padStart(2, "0");
+      const mm = String(parts.minute).padStart(2, "0");
+      return parsed.hasTime ? `${y}/${m}/${d} ${hh}:${mm}` : `${y}/${m}/${d}`;
+    }
+
+    function formatEventPeriodPart(parsed, includeYear) {
+      if (!parsed) return "";
+      const parts = getTaipeiParts(parsed.date);
+      if (!parts) return "";
+
+      const y = String(parts.year).padStart(4, "0");
+      const m = String(parts.month).padStart(2, "0");
+      const d = String(parts.day).padStart(2, "0");
+      const hh = String(parts.hour).padStart(2, "0");
+      const mm = String(parts.minute).padStart(2, "0");
+      const dateText = includeYear ? `${y}/${m}/${d}` : `${m}/${d}`;
+      return parsed.hasTime ? `${dateText} ${hh}:${mm}` : dateText;
+    }
+
+    function buildEventPeriodHtml(eventData) {
+      const start = parseEventDateValue(eventData.startDate, { endOfDayWhenDateOnly: false });
+      const end = parseEventDateValue(eventData.endDate, { endOfDayWhenDateOnly: true });
+
+      if (!start && !end) {
+        return '<div class="event-period-lines"><div>未設定</div></div>';
+      }
+
+      const startParts = start ? getTaipeiParts(start.date) : null;
+      const endParts = end ? getTaipeiParts(end.date) : null;
+      const nowParts = getTaipeiParts(new Date());
+      const currentYear = nowParts ? nowParts.year : new Date().getFullYear();
+
+      // 只有「開始、結束都在今年」時才省略年份。
+      // 跨年度活動兩邊都顯示年份；常駐活動若從過去年份開始，也保留開始年份。
+      const bothWithinCurrentYear = !!(
+        startParts &&
+        endParts &&
+        startParts.year === currentYear &&
+        endParts.year === currentYear
+      );
+      const startIncludeYear = startParts
+        ? (!end ? startParts.year !== currentYear : !bothWithinCurrentYear)
+        : false;
+      const endIncludeYear = endParts
+        ? (!start ? endParts.year !== currentYear : !bothWithinCurrentYear)
+        : false;
+
+      const startText = start
+        ? formatEventPeriodPart(start, startIncludeYear)
+        : "未設定";
+      const endText = end
+        ? formatEventPeriodPart(end, endIncludeYear)
+        : "常駐";
+
+      return `
+        <div class="event-period-lines">
+          <div>${escapeHtml(startText)}</div>
+          <div class="event-period-end">~ ${escapeHtml(endText)}</div>
+        </div>
+      `;
+    }
+
+    function getEventStatus(eventData) {
+      const now = new Date();
+      const start = parseEventDateValue(eventData.startDate, { endOfDayWhenDateOnly: false });
+      const end = parseEventDateValue(eventData.endDate, { endOfDayWhenDateOnly: true });
+
+      if (start && now.getTime() < start.date.getTime()) {
+        return { key: "upcoming", label: "尚未開始" };
+      }
+      if (end && now.getTime() > end.date.getTime()) {
+        return { key: "ended", label: "已結束" };
+      }
+      if (!end) return { key: "permanent", label: "常駐" };
+      return { key: "active", label: "進行中" };
+    }
+
+    function parseEventCoordinateLines(coordsText) {
+      return String(coordsText || "")
+        .replace(/\r\n/g, "\n")
+        .split("\n")
+        .map(line => line.trim())
+        .filter(Boolean)
+        .map((line, index) => {
+          const semicolon = line.indexOf(";");
+          const name = semicolon >= 0 ? line.slice(0, semicolon).trim() : `座標 ${index + 1}`;
+          const coordText = semicolon >= 0 ? line.slice(semicolon + 1).trim() : line;
+          const match = coordText.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+          if (!match) return null;
+          const lat = Number(match[1]);
+          const lon = Number(match[2]);
+          if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+          return { name: name || `座標 ${index + 1}`, lat, lon };
+        })
+        .filter(Boolean);
+    }
+
+    function buildEventGpx(eventData) {
+      const points = parseEventCoordinateLines(eventData.coords);
+      const trackName = eventData.name || "活動座標";
+      const wpts = points.map(point =>
+        `  <wpt lat="${escapeXml(point.lat.toFixed(6))}" lon="${escapeXml(point.lon.toFixed(6))}"><name>${escapeXml(point.name)}</name></wpt>`
+      ).join("\n");
+      const trkpts = points.map(point =>
+        `      <trkpt lat="${escapeXml(point.lat.toFixed(6))}" lon="${escapeXml(point.lon.toFixed(6))}"><name>${escapeXml(point.name)}</name></trkpt>`
+      ).join("\n");
+      return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="XiaoXiao">\n${wpts}\n  <trk>\n    <name>${escapeXml(trackName)}</name>\n    <trkseg>\n${trkpts}\n    </trkseg>\n  </trk>\n</gpx>`;
+    }
+
+    function downloadTextFile(text, fileName) {
+      const blob = new Blob([text], { type: "application/gpx+xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    async function copyEventCoords(id) {
+      const eventData = events.find(item => String(item.id) === String(id));
+      if (!eventData) return;
+      const points = parseEventCoordinateLines(eventData.coords);
+      if (!points.length) return showToast("這個活動沒有有效座標");
+      const text = points.map(point => `${point.lat.toFixed(6)},${point.lon.toFixed(6)}`).join("\n");
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (error) {
+        const temp = document.createElement("textarea");
+        temp.value = text;
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand("copy");
+        temp.remove();
+      }
+      showToast(`已複製 ${points.length} 個活動座標`);
+    }
+
+    async function copyEventGpx(id) {
+      const eventData = events.find(item => String(item.id) === String(id));
+      if (!eventData) return;
+      const points = parseEventCoordinateLines(eventData.coords);
+      if (!points.length) return showToast("這個活動沒有有效座標");
+
+      const wpts = points.map(point =>
+        `  <wpt lat="${escapeXml(point.lat.toFixed(6))}" lon="${escapeXml(point.lon.toFixed(6))}"><name>${escapeXml(point.name)}</name></wpt>`
+      ).join("\n");
+      const wptGpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="XiaoXiao">\n${wpts}\n</gpx>`;
+
+      try {
+        await navigator.clipboard.writeText(wptGpx);
+      } catch (error) {
+        const temp = document.createElement("textarea");
+        temp.value = wptGpx;
+        temp.style.position = "fixed";
+        temp.style.opacity = "0";
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand("copy");
+        temp.remove();
+      }
+      showToast(`已複製 AR WPT（${points.length} 個座標）`);
+    }
+
+    function downloadEventGpx(id) {
+      const eventData = events.find(item => String(item.id) === String(id));
+      if (!eventData) return;
+      const points = parseEventCoordinateLines(eventData.coords);
+      if (!points.length) return showToast("這個活動沒有有效座標");
+      const fileName = `${sanitizeFileName(`活動_${eventData.name || "活動座標"}`)}.gpx`;
+      downloadTextFile(buildEventGpx(eventData), fileName);
+      showToast(`已下載 GPX：${fileName}`);
+    }
+
+
+    async function verifyAdminPassword(password) {
+      const res = await fetchWithTimeout(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "verify", accessPassword: password })
+      });
+      const data = await res.json();
+      return { success: !!data.success && data.role === "admin", data };
+    }
+
+    function setAdminMode(enabled) {
+      isAdmin = !!enabled;
+      document.body.classList.toggle("admin-on", isAdmin);
+      $("adminPanel").classList.toggle("active", isAdmin);
+      $("adminLoginBtn").style.display = isAdmin ? "none" : "inline-block";
+      $("logoutBtn").style.display = isAdmin ? "inline-block" : "none";
+      renderEvents();
+    }
+
+    function clearEventForm() {
+      editingEventId = null;
+      $("eventNameInput").value = "";
+      $("eventIntervalInput").value = "1day";
+      $("eventStartDateInput").value = "";
+      $("eventStartTimeInput").value = "";
+      $("eventEndDateInput").value = "";
+      $("eventEndTimeInput").value = "";
+      $("eventCoordsInput").value = "";
+      $("eventNoteInput").value = "";
+      $("saveEventBtn").textContent = "新增活動";
+    }
+
+    function splitEventDateTimeValue(value) {
+      if (!value) return { date: "", time: "" };
+
+      const parsed = parseEventDateValue(value, { endOfDayWhenDateOnly: false });
+      if (!parsed || !parsed.date) return { date: "", time: "" };
+
+      const parts = getTaipeiParts(parsed.date);
+      if (!parts) return { date: "", time: "" };
+
+      const y = String(parts.year).padStart(4, "0");
+      const m = String(parts.month).padStart(2, "0");
+      const d = String(parts.day).padStart(2, "0");
+      const hh = String(parts.hour).padStart(2, "0");
+      const mm = String(parts.minute).padStart(2, "0");
+
+      return {
+        date: `${y}-${m}-${d}`,
+        time: parsed.hasTime ? `${hh}:${mm}` : ""
+      };
+    }
+
+    function normalize24HourTime(value) {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+
+      const compact = raw.replace(/[^0-9]/g, "");
+      let hour = "";
+      let minute = "";
+
+      if (/^\d{3}$/.test(compact)) {
+        hour = compact.slice(0, 1);
+        minute = compact.slice(1);
+      } else if (/^\d{4}$/.test(compact)) {
+        hour = compact.slice(0, 2);
+        minute = compact.slice(2);
+      } else {
+        const match = raw.match(/^(\d{1,2}):(\d{2})$/);
+        if (!match) return null;
+        hour = match[1];
+        minute = match[2];
+      }
+
+      const h = Number(hour);
+      const m = Number(minute);
+      if (!Number.isInteger(h) || !Number.isInteger(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+
+    function buildStoredEventDate(dateValue, timeValue) {
+      const date = String(dateValue || "").trim();
+      const normalizedTime = normalize24HourTime(timeValue);
+      if (!date) return "";
+      if (normalizedTime === null) return null;
+
+      const normalizedDate = date.replace(/-/g, "/");
+      return normalizedTime ? `${normalizedDate} ${normalizedTime}` : normalizedDate;
+    }
+
+    function editEventItem(id) {
+      const eventData = events.find(item => String(item.id) === String(id));
+      if (!eventData || !isAdmin) return;
+      editingEventId = eventData.id;
+      $("eventNameInput").value = eventData.name || "";
+      $("eventIntervalInput").value = eventData.interval === "1month" ? "monthly1st" : (eventData.interval || "1day");
+      const startParts = splitEventDateTimeValue(eventData.startDate);
+      const endParts = splitEventDateTimeValue(eventData.endDate);
+      $("eventStartDateInput").value = startParts.date;
+      $("eventStartTimeInput").value = startParts.time;
+      $("eventEndDateInput").value = endParts.date;
+      $("eventEndTimeInput").value = endParts.time;
+      $("eventCoordsInput").value = String(eventData.coords || "").replace(/\r\n/g, "\n");
+      $("eventNoteInput").value = eventData.note || "";
+      $("saveEventBtn").textContent = "更新活動";
+      $("adminPanel").classList.remove("collapsed");
+      $("adminCollapseBtn").textContent = "▲";
+      $("adminPanel").scrollIntoView({ behavior:"smooth", block:"start" });
+    }
+
+    async function saveEventToSheet(eventData) {
+      const res = await fetchWithTimeout(API_URL, {
+        method:"POST",
+        headers:{ "Content-Type":"text/plain;charset=utf-8" },
+        body:JSON.stringify({ action:"saveEvent", adminPassword, event:eventData })
+      });
+      return await res.json();
+    }
+
+    async function deleteEventItem(id) {
+      if (!isAdmin) return;
+      const eventData = events.find(item => String(item.id) === String(id));
+      if (!eventData) return;
+      if (!confirm(`確定要刪除「${eventData.name || "此活動"}」嗎？`)) return;
+      const res = await fetchWithTimeout(API_URL, {
+        method:"POST",
+        headers:{ "Content-Type":"text/plain;charset=utf-8" },
+        body:JSON.stringify({ action:"deleteEvent", adminPassword, id })
+      });
+      const data = await res.json();
+      if (!data.success) { alert(data.message || "刪除失敗"); return; }
+      clearEventForm();
+      await loadEvents({ showLoading:false });
+      showToast("已刪除活動");
+    }
+
+    function renderEventTable(list) {
+      if (!list.length) return "";
+      return `
+        <div class="event-table-header">
+          <div class="event-cell">活動名稱</div>
+          <div class="event-cell">活動間隔</div>
+          <div class="event-cell">活動期間</div>
+          <div class="event-cell">座標數量</div>
+          <div class="event-cell">備註</div>
+          <div class="event-cell">狀態 / 操作</div>
+        </div>
+        ${list.map(renderEventCard).join("")}
+      `;
+    }
+
+    function renderEventCard(eventData) {
+      const status = getEventStatus(eventData);
+      const points = parseEventCoordinateLines(eventData.coords);
+      const periodHtml = buildEventPeriodHtml(eventData);
+      const interval = EVENT_INTERVAL_LABELS[eventData.interval] || eventData.interval || "未設定";
+      const safeId = String(eventData.id || "").replace(/'/g, "\\'");
+
+      return `
+        <article class="event-card ${status.key === "ended" ? "ended" : ""}">
+          <div class="event-cell event-name-cell"><h3 class="event-card-title">${escapeHtml(eventData.name || "未命名活動")}</h3></div>
+          <div class="event-cell event-interval-cell"><span class="event-mobile-label">活動間隔</span>${escapeHtml(interval)}</div>
+          <div class="event-cell event-period-cell"><span class="event-mobile-label">活動期間</span>${periodHtml}</div>
+          <div class="event-cell event-count-cell"><span class="event-mobile-label">座標數量</span>${points.length} 個</div>
+          <div class="event-cell event-note-cell"><span class="event-mobile-label">備註</span>${escapeHtml(eventData.note || "—")}</div>
+          <div class="event-cell event-operation-cell">
+            <span class="event-mobile-label event-operation-label">狀態 / 操作</span>
+            <span class="event-status ${status.key}">${escapeHtml(status.label)}</span>
+            ${status.key === "ended" ? "" : `
+            <div class="event-actions">
+              <button onclick="copyEventCoords('${safeId}')">複製座標</button>
+              <button class="secondary" onclick="copyEventGpx('${safeId}')">AR複製</button>
+              <button class="download" onclick="downloadEventGpx('${safeId}')">下載 GPX</button>
+            </div>`}
+            ${isAdmin ? `
+            <div class="event-actions">
+              <button class="green" onclick="editEventItem('${safeId}')">編輯</button>
+              <button class="danger" onclick="deleteEventItem('${safeId}')">刪除</button>
+            </div>` : ""}
+          </div>
+        </article>
+      `;
+    }
+
+    function renderEvents() {
+      $("loadingMessage").style.display = "none";
+
+      const current = [];
+      const permanent = [];
+      const ended = [];
+
+      events.forEach(eventData => {
+        const statusKey = getEventStatus(eventData).key;
+        if (statusKey === "ended") {
+          ended.push(eventData);
+        } else if (statusKey === "permanent") {
+          permanent.push(eventData);
+        } else {
+          // 進行中與尚未開始都留在主要「活動座標」區塊。
+          current.push(eventData);
+        }
+      });
+
+      // 排序規則：
+      // 1. 活動座標：結束日期由近到遠；相同時開始日期由舊到新。
+      // 2. 常駐活動：開始日期由舊到新。
+      // 3. 已結束活動：結束日期由新到舊。
+      const getStartTime = eventData => {
+        const parsed = parseEventDateValue(eventData.startDate, { endOfDayWhenDateOnly: false });
+        return parsed ? parsed.date.getTime() : Number.POSITIVE_INFINITY;
+      };
+
+      const getEndTime = eventData => {
+        const parsed = parseEventDateValue(eventData.endDate, { endOfDayWhenDateOnly: true });
+        return parsed ? parsed.date.getTime() : Number.POSITIVE_INFINITY;
+      };
+
+      current.sort((a, b) => {
+        const statusA = getEventStatus(a).key;
+        const statusB = getEventStatus(b).key;
+
+        // 進行中優先，尚未開始排後面。
+        const priority = { active: 0, upcoming: 1 };
+        const priorityDiff = (priority[statusA] ?? 9) - (priority[statusB] ?? 9);
+        if (priorityDiff !== 0) return priorityDiff;
+
+        // 同一狀態內：結束日期由近到遠；相同時開始日期由舊到新。
+        const endDiff = getEndTime(a) - getEndTime(b);
+        if (endDiff !== 0) return endDiff;
+        return getStartTime(a) - getStartTime(b);
+      });
+
+      permanent.sort((a, b) => getStartTime(a) - getStartTime(b));
+
+      ended.sort((a, b) => getEndTime(b) - getEndTime(a));
+
+      $("eventsGrid").innerHTML = renderEventTable(current);
+      $("eventsGrid").style.display = current.length ? "block" : "none";
+
+      $("permanentEventsGrid").innerHTML = renderEventTable(permanent);
+      $("permanentEventsGrid").style.display = permanent.length ? "block" : "none";
+      $("permanentEventsTitle").style.display = permanent.length ? "flex" : "none";
+      $("permanentEventsCount").textContent = permanent.length ? `共 ${permanent.length} 個活動` : "";
+
+      $("endedEventsGrid").innerHTML = renderEventTable(ended);
+      $("endedEventsGrid").style.display = ended.length ? "block" : "none";
+      $("endedEventsTitle").style.display = ended.length ? "block" : "none";
+      $("eventsCount").textContent = current.length ? `共 ${current.length} 個活動` : "";
+
+      const counts = events.reduce((result, eventData) => {
+        const key = getEventStatus(eventData).key;
+        result[key] = (result[key] || 0) + 1;
+        return result;
+      }, {});
+
+      const summaryParts = [
+        `進行中 ${counts.active || 0} 個`,
+        `常駐 ${counts.permanent || 0} 個`
+      ];
+      if (counts.upcoming) summaryParts.push(`尚未開始 ${counts.upcoming} 個`);
+      $("eventSummaryText").textContent = summaryParts.join(" ｜ ");
+
+      $("eventsSection").style.display = events.length ? "block" : "none";
+      $("eventsEmpty").style.display = events.length ? "none" : "block";
+    }
+
+    window.copyEventCoords = copyEventCoords;
+    window.copyEventGpx = copyEventGpx;
+    window.downloadEventGpx = downloadEventGpx;
+    window.editEventItem = editEventItem;
+    window.deleteEventItem = deleteEventItem;
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        checkDataVersion();
+        startDataVersionTimer();
+      } else if (dataVersionTimer) {
+        clearInterval(dataVersionTimer);
+        dataVersionTimer = null;
+      }
+    });
+
+
+
+    $("adminLoginBtn").addEventListener("click", () => $("loginDialog").showModal());
+    $("closeLoginBtn").addEventListener("click", () => $("loginDialog").close());
+    $("passwordInput").addEventListener("keydown", e => { if (e.key === "Enter") $("confirmLoginBtn").click(); });
+    $("confirmLoginBtn").addEventListener("click", async () => {
+      const password = $("passwordInput").value;
+      if (!password) { alert("請輸入密碼。"); return; }
+      const btn = $("confirmLoginBtn");
+      btn.disabled = true; btn.textContent = "驗證中…";
+      try {
+        const result = await verifyAdminPassword(password);
+        if (!result.success) { alert(result.data?.message || "管理員密碼錯誤。"); return; }
+        adminPassword = password;
+        sessionStorage.setItem("pikminActivityAdminPassword", password);
+        $("passwordInput").value = "";
+        $("loginDialog").close();
+        setAdminMode(true);
+        showToast("已進入活動管理模式");
+      } catch (e) {
+        alert("暫時無法驗證管理員權限，請稍後再試。");
+      } finally {
+        btn.disabled = false; btn.textContent = "登入";
+      }
+    });
+    $("logoutBtn").addEventListener("click", () => {
+      adminPassword = "";
+      sessionStorage.removeItem("pikminActivityAdminPassword");
+      clearEventForm();
+      setAdminMode(false);
+      showToast("已登出管理員");
+    });
+    $("adminPanelHeader").addEventListener("click", () => {
+      const panel = $("adminPanel");
+      const collapsed = !panel.classList.contains("collapsed");
+      panel.classList.toggle("collapsed", collapsed);
+      $("adminCollapseBtn").textContent = collapsed ? "▼" : "▲";
+    });
+    $("clearEventFormBtn").addEventListener("click", clearEventForm);
+    ["eventStartTimeInput", "eventEndTimeInput"].forEach(id => {
+      $(id).addEventListener("blur", () => {
+        const normalized = normalize24HourTime($(id).value);
+        if (normalized !== null) $(id).value = normalized;
+      });
+    });
+
+    $("saveEventBtn").addEventListener("click", async () => {
+      if (!isAdmin) return;
+      const name = $("eventNameInput").value.trim();
+      const coords = String($("eventCoordsInput").value || "").replace(/\r\n/g,"\n").trim();
+
+      const startDateOnly = $("eventStartDateInput").value;
+      const startTimeOnly = $("eventStartTimeInput").value;
+      const endDateOnly = $("eventEndDateInput").value;
+      const endTimeOnly = $("eventEndTimeInput").value;
+
+      if (!name) { alert("請填寫活動名稱。"); $("eventNameInput").focus(); return; }
+      if (!startDateOnly) { alert("請填寫活動開始日期。"); $("eventStartDateInput").focus(); return; }
+      if (startTimeOnly && !startDateOnly) { alert("請先填寫活動開始日期。"); $("eventStartDateInput").focus(); return; }
+      if (endTimeOnly && !endDateOnly) { alert("請先填寫活動結束日期，或清除結束時間。"); $("eventEndDateInput").focus(); return; }
+      if (!coords) { alert("請填寫活動座標。"); $("eventCoordsInput").focus(); return; }
+
+      const startDate = buildStoredEventDate(startDateOnly, startTimeOnly);
+      const endDate = buildStoredEventDate(endDateOnly, endTimeOnly);
+
+      if (startDate === null) {
+        alert("活動開始時間請使用 24 小時制 HH:mm，例如 09:30 或 18:00。");
+        $("eventStartTimeInput").focus();
+        return;
+      }
+      if (endDate === null) {
+        alert("活動結束時間請使用 24 小時制 HH:mm，例如 09:30 或 18:00。");
+        $("eventEndTimeInput").focus();
+        return;
+      }
+
+      const eventData = {
+        id: editingEventId || crypto.randomUUID(),
+        name,
+        interval: $("eventIntervalInput").value,
+        startDate,
+        endDate,
+        coords,
+        note: $("eventNoteInput").value.trim()
+      };
+      const btn = $("saveEventBtn");
+      btn.disabled = true;
+      try {
+        const data = await saveEventToSheet(eventData);
+        if (!data.success) { alert(data.message || "儲存失敗"); return; }
+        const wasEditing = !!editingEventId;
+        clearEventForm();
+        await loadEvents({ showLoading:false });
+        showToast(wasEditing ? "已更新活動" : "已新增活動");
+      } catch (e) {
+        alert("儲存失敗，請稍後再試。");
+      } finally { btn.disabled = false; }
+    });
+
+    // 若本分頁已有管理員登入狀態，自動重新驗證。
+    if (adminPassword) {
+      verifyAdminPassword(adminPassword).then(result => {
+        if (result.success) setAdminMode(true);
+        else { adminPassword = ""; sessionStorage.removeItem("pikminActivityAdminPassword"); }
+      }).catch(() => {});
+    }
+
+    $("reloadLatestBtn").addEventListener("click", () => {
+      const url = new URL(window.location.href);
+      url.searchParams.set("_latest", Date.now());
+      window.location.replace(url.toString());
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        checkSiteVersion();
+        startSiteVersionTimer();
+      } else {
+        stopSiteVersionTimer();
+      }
+    });
+
+    checkSiteVersion({ initialize: true }).finally(startSiteVersionTimer);
+
+    const restored = restoreCache();
+    
+    if (!restored) {
+      loadEvents({ showLoading: true });
+    } else {
+      checkDataVersion();
+    }
+    
+    startDataVersionTimer();
+  </script>
+</body>
+</html>
