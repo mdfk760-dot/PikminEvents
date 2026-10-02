@@ -702,7 +702,7 @@
 
     const PUBLIC_CACHE_KEY = "pikminActivityPublicCacheV1";
     const CACHE_MAX_AGE = 15 * 60 * 1000;
-    const DATA_VERSION_CHECK_INTERVAL = 12 * 1000;
+    const DATA_VERSION_CHECK_INTERVAL = 30 * 1000;
     const FETCH_TIMEOUT = 15000;
 
     let events = [];
@@ -1650,7 +1650,13 @@
     checkForSiteUpdate({ initialize: true }).finally(startSiteUpdateTimer);
 
     const restored = restoreCache();
-    loadEvents({ showLoading: !restored });
+    
+    if (!restored) {
+      loadEvents({ showLoading: true });
+    } else {
+      checkDataVersion();
+    }
+    
     startVersionTimer();
   </script>
 </body>
